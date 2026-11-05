@@ -1,0 +1,643 @@
+// arena-login.mjs — real email/password login against arena.ai using
+// Playwright, plus reCAPTCHA v3 token generation. Fully standalone.
+import { createRequire } from "node:module";
+import { retry, log, sleep } from "./util.mjs";
+import { cookieHeaderToObjects } from "./cookie.mjs";
+import { installProbe } from "./probe/index.mjs";
+
+const require = createRequire(import.meta.url);
+
+// ── the deployment pin ──────────────────────────────────────────────────────
+//
+// Arena builds a Session against whichever of its Vercel deployments answers
+// the create-chat POST, and that deployment decides which Trigger.dev task
+// version the Session is locked to (`triggerConfig.lockToVersion`). Since
+// 2026-09-30 the current deployment locks new Sessions to 20260930.20, and that
+// task version no longer hands the page a run-scoped `public-access-token` — the
+// only thing that lets the page read the run's own trace, and therefore its
+// model name. The previous deployment still answers, still locks to 20260930.5,
+// and that version still delivers the token.
+//
+// What actually carries the pin was measured on arena.ai rather than assumed.
+// Arena serves its web frontend and its API from two different Vercel
+// deployments — one navigation to /agent returns assets stamped `?dpl=<web>`
+// while the page's own XHR answers `x-arena-api-deployment: <api>` — and
+// `__vdpl` only selects a deployment inside whichever of the two is being
+// asked. Measured with the cookie installed on the whole context: navigations
+// to `/` and `/agent` came back from the same web deployment as without it, and
+// a same-origin `/api/*` call from the page came back from the same API
+// deployment as without it. The cookie therefore does not in practice drag the
+// page, or the rest of the context, onto the pinned deployment — even though
+// Vercel documents it as pinning "that request ... including document
+// navigations". Verified via `document.cookie` that it was really being sent.
+//
+// Two things carry the pin instead, and the stamp comes off on the create-chat
+// path ONLY: Arena's SPA otherwise attaches `x-arena-web-deployment` /
+// `x-deployment-id` naming the current deployment, and the server prefers those
+// over the cookie.
+//
+// create-chat needs BOTH halves, measured end-to-end by creating real Sessions
+// with one half switched off at a time. With the cookie and the strip both in
+// place the new Session reports `lockToVersion` 20260930.5 and its `/out` stream
+// carries a run-scoped token. With either half removed — or with the pin off
+// entirely — it reports 20260930.20 and the stream carries no run token at all.
+// So the cookie alone changes nothing here (Arena's stamp headers win over it),
+// and stripping alone changes nothing either (nothing then names the pinned
+// deployment). For `/api/*` the decider is Arena's own headers rather than the
+// cookie: naming the pinned id in `x-arena-web-deployment`, `x-deployment-id`
+// AND `x-arena-api-deployment` together routes the request there (it answers
+// with `x-arena-api-deployment: dpl_HDHBFo2Fyx5bx9ABr4Uau7kdXfhL` and
+// `x-arena-trigger-version: 20260930.5`), while `?dpl=` or `x-deployment-id`
+// alone are refused with 409 refresh_required. A header-only pin is the cleaner
+// shape, and the first thing to try if this needs revisiting.
+//
+// This is a stopgap pinned to one Arena deployment. When Arena deletes it the
+// model name goes back to reading as unknown (a Session created by the current
+// deployment carries no run token at all). ARENA_DEPLOYMENT_PIN overrides the
+// id; `none` turns the whole thing off.
+export const DEPLOYMENT_PIN_COOKIE = "__vdpl";
+export const DEPLOYMENT_PIN = "dpl_DaEk6YQDh7utsYDiEtpTgeRc5jct";
+export const DEPLOYMENT_STAMP_HEADERS = Object.freeze(["x-arena-web-deployment", "x-deployment-id"]);
+export const CREATE_SESSION_PATH = "/nextjs-api/stream/create-chat";
+
+export function deploymentPin(env = process.env) {
+  const value = String(env.ARENA_DEPLOYMENT_PIN ?? "").trim();
+  if (value === "none") return "";
+  return value || DEPLOYMENT_PIN;
+}
+
+/**
+ * The create-chat POST with Arena's own deployment stamp removed. Its SPA
+ * attaches `x-arena-web-deployment` / `x-deployment-id` naming the current
+ * deployment to the requests it makes, and the server prefers those over the
+ * `__vdpl` cookie — which is why they come off for this one path. A copy, so
+ * the caller's header object is left alone.
+ */
+export function withoutDeploymentStamp(headers) {
+  const kept = { ...headers };
+  for (const name of DEPLOYMENT_STAMP_HEADERS) delete kept[name];
+  return kept;
+}
+
+/**
+ * Make `context`'s create-chat POSTs land on the pinned deployment. Registered
+ * per context, because the cookie and the route both live and die with it.
+ */
+async function installDeploymentPin(context, pin) {
+  if (!pin) return;
+  await context.addCookies([
+    { name: DEPLOYMENT_PIN_COOKIE, value: pin, domain: ".arena.ai", path: "/", secure: true, sameSite: "Lax" },
+  ]);
+  await context.route(`**${CREATE_SESSION_PATH}`, async (route) => {
+    try {
+      const headers = await route.request().allHeaders();
+      await route.continue({ headers: withoutDeploymentStamp(headers) });
+    } catch {
+      // A request we could not rewrite still has to go out.
+      await route.continue().catch(() => undefined);
+    }
+  });
+}
+
+export function resolvePlaywright(omniRoot) {
+  const candidates = [];
+  if (omniRoot) candidates.push(`${omniRoot}/node_modules/playwright`, `${omniRoot}/node_modules/playwright-core`);
+  candidates.push("playwright", "playwright-core");
+  for (const candidate of candidates) {
+    try {
+      const mod = require(candidate);
+      if (mod?.chromium) return mod;
+    } catch {
+      /* try next */
+    }
+  }
+  throw new Error(
+    `Playwright not resolvable (tried: ${candidates.join(", ")}). Run: npm install playwright && npx playwright install chromium`
+  );
+}
+
+/**
+ * What should happen to an Account's context on the way into getPage()?
+ *
+ *   create      — this Account has no context yet
+ *   reuse       — nothing about its credential changed
+ *   rebuild     — the credential changed and nobody is using the context
+ *   reuse-stale — the credential changed but the context is busy
+ *
+ * `reuse-stale` is the one that matters. Rebuilding closes every page in the
+ * context, including the turn running right now, which is exactly what the old
+ * "close the browser when a credential refreshes" did — and why a refresh used
+ * to cut off work that started before it. Living briefly with stale cookies
+ * beats that. The dirty mark survives, so the next idle call rebuilds.
+ */
+export function contextAction({ hasContext = false, dirty = false, leases = 0 } = {}) {
+  if (!hasContext) return "create";
+  if (!dirty) return "reuse";
+  return leases === 0 ? "rebuild" : "reuse-stale";
+}
+
+/**
+ * The operations that hold a page of their own.
+ *
+ * A lease protects the CONTEXT's lifetime, not a page's use: two operations can
+ * hold the same Account at once and each still needs its own page, or one
+ * navigating away makes the other read the wrong document. Keyed on purpose
+ * rather than on operation instance, because a page has to outlive the call
+ * that made it — a turn asks for its page repeatedly, and the quota read is
+ * written against the page a finished turn left behind. Concurrent operations
+ * of the SAME purpose are already serialized upstream (#serialized for
+ * converse, `running` for the harvester, turnsInFlight for reprobe).
+ */
+export const PAGE_PURPOSES = {
+  converse: { probe: true },
+  harvest: { probe: true },
+  reprobe: { probe: true },
+  fingerprint: { probe: true },
+  // Loads Google's script and nothing else. No conversation ever runs on it, so
+  // the probe would only be re-parsed on every navigation for a snapshot that
+  // nobody reads.
+  recaptcha: { probe: false },
+};
+
+/**
+ * An unknown purpose is a mistake, not a purpose of its own: it would quietly
+ * make a fresh page on every call, and anything written against the page a
+ * previous run left behind would find an empty document instead of the typo.
+ * A missing one is rejected the same way — silently landing on someone else's
+ * page is the whole failure this indirection exists to prevent.
+ */
+function assertPagePurpose(purpose) {
+  if (!Object.hasOwn(PAGE_PURPOSES, String(purpose ?? ""))) {
+    throw new TypeError(
+      `Unknown page purpose ${JSON.stringify(purpose)}; expected one of ${Object.keys(PAGE_PURPOSES).join(", ")}`
+    );
+  }
+}
+
+/**
+ * What should happen to this purpose's page on the way into getPage()?
+ *
+ *   reuse  — it already has an open page
+ *   create — it has none, or the one it had is closed
+ *
+ * The closed case is the one worth a name: a page the site closed is not a
+ * page, and reusing it fails at the first call on it — far from the decision.
+ */
+export function pageAction({ hasPage = false, closed = false } = {}) {
+  return hasPage && !closed ? "reuse" : "create";
+}
+
+export class ArenaBrowser {
+  constructor({ omniRoot = "", chromePath = "", proxy = "", userAgent, desktopCdpUrl = "" } = {}) {
+    this.pw = resolvePlaywright(omniRoot);
+    this.chromePath = chromePath;
+    this.proxy = proxy;
+    this.desktopCdpUrl = desktopCdpUrl;
+    // Leave userAgent undefined so Playwright sends its REAL engine UA. A
+    // hardcoded UA that doesn't match the actual Chromium build is a strong
+    // bot tell (reCAPTCHA cross-checks UA vs engine), and was causing
+    // "recaptcha validation failed". Let the genuine engine speak for itself.
+    this.userAgent = userAgent || "";
+    this.browser = null;
+    // One context per Account, keyed by email. A single shared context meant a
+    // refresh for one Account rebuilt the world for all of them, and that the
+    // batch/reprobe/quota flows all queued behind the same pages.
+    //   { context, pages, signature, staleSince, leases, warned }
+    this.contexts = new Map();
+    // Pages already carrying the model probe. addInitScript is per-page, and
+    // re-adding it on every call would make each navigation parse the bundle
+    // again — the probe itself no-ops on a same-version repeat, but the parse
+    // is not free.
+    this.probedPages = new WeakSet();
+    // False once we know assets/arena-model-probe.inject.js is missing.
+    this.probeAvailable = true;
+  }
+
+  async launch() {
+    if (this.browser) {
+      if (this.browser.isConnected()) {
+        return this.browser;
+      }
+      this.browser = null;
+      for (const entry of this.contexts.values()) {
+        entry.context = null;
+        entry.pages.clear();
+        entry.signature = "";
+        entry.staleSince = 0;
+      }
+    }
+    if (this.desktopCdpUrl) {
+      const endpoint = new URL(this.desktopCdpUrl);
+      if (!['127.0.0.1', 'localhost'].includes(endpoint.hostname)) throw new Error('Desktop browser must be loopback only');
+      this.browser = await this.pw.chromium.connectOverCDP(this.desktopCdpUrl, { timeout: 30_000 });
+      return this.browser;
+    }
+    return retry(
+      async () => {
+        const args = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"];
+        if (this.proxy) args.push(`--proxy-server=${this.proxy}`);
+        const launchOpts = { headless: process.env.ARENA_HEADED !== "1", args };
+        if (this.chromePath) launchOpts.executablePath = this.chromePath;
+        this.browser = await this.pw.chromium.launch(launchOpts);
+        return this.browser;
+      },
+      { attempts: 3, baseMs: 1000, maxMs: 8000, label: "chromium-launch" }
+    );
+  }
+
+  #entry(account) {
+    let entry = this.contexts.get(account);
+    if (!entry) {
+      entry = {
+        context: null,
+        // One page per purpose, and a new Map whenever the context is replaced:
+        // a page from the old context is dead the moment that context closes,
+        // so keeping them together is what makes "never hand out a dead page"
+        // structural instead of something to remember to clear.
+        pages: new Map(),
+        signature: "",
+        staleSince: 0,
+        warned: false,
+        leases: 0,
+      };
+      this.contexts.set(account, entry);
+    }
+    return entry;
+  }
+
+  /** How many operations currently hold this Account's context. */
+  leaseCount(account = "") {
+    return this.#entry(String(account || "")).leases;
+  }
+
+  /**
+   * Hold `credential`'s context for the duration of `fn`.
+   *
+   * While it is held, a credential refresh marks that Account's context stale but
+   * does not rebuild it — see contextAction(). Leases belong to OPERATIONS, not
+   * to getPage calls: a single turn asks for its page several times, so counting
+   * there would never return to zero. Everything that keeps a page for more than
+   * a moment goes through here, which is also what keeps acquire and release
+   * paired in one place instead of at every call site.
+   */
+  async withAccount(credential, fn) {
+    const account = String(credential?.email || "");
+    this.#entry(account).leases += 1;
+    try {
+      return await fn();
+    } finally {
+      this.release(account);
+    }
+  }
+
+  /** The operation is done with this Account's context. */
+  release(account = "") {
+    const entry = this.contexts.get(String(account || ""));
+    if (entry && entry.leases > 0) entry.leases -= 1;
+  }
+
+  /**
+   * A page for `credential`'s Account, for one operation's purpose. No lease is
+   * taken here — see withAccount(). `purpose` is required: it is what keeps two
+   * operations on one Account off each other's page, so it is not something a
+   * call site should be able to leave to a default.
+   */
+  async getPage(credential = null, purpose) {
+    // A bare cookie header is the shape of a call site left on the old
+    // (cookieHeader, updatedAt) signature — and every field this method reads
+    // would come back undefined, so it would quietly drive an ANONYMOUS,
+    // unauthenticated context instead of failing. Say so instead. `null` stays
+    // allowed: that is the deliberate "no Account yet" path, not a mistake.
+    // The Account is the identity of a context, so a credential without an
+    // `email` cannot address one — `{}` or an array would land on the same
+    // anonymous context as a bare string, just less obviously.
+    if (credential !== null && (typeof credential !== "object" || !String(credential.email || "").trim())) {
+      throw new TypeError(
+        "ArenaBrowser.getPage() takes one credential object with an email " +
+          "({ email, cookieHeader, updatedAt }); a bare cookie header belongs to the previous signature."
+      );
+    }
+    const account = String(credential?.email || "");
+    const cookieHeader = String(credential?.cookieHeader || "");
+    const signature = String(credential?.updatedAt || "");
+    // Validated here, before anything is built: a typo must not leave a
+    // half-created Account behind it.
+    assertPagePurpose(purpose);
+    // A user may close the headed browser while the local HTTP server stays up.
+    // Rebuild dead browser/context handles before asking a cached context for a page.
+    await this.launch();
+    if (this.desktopCdpUrl) {
+      if (account && this.desktopAccountEmail && account.toLowerCase() !== this.desktopAccountEmail.toLowerCase()) {
+        throw Object.assign(new Error('此归档属于另一个Arena账号，请先在工作台切换登录并同步该账号'),{status:409,code:'desktop_account_mismatch'});
+      }
+      const page = this.browser.contexts().flatMap(c=>c.pages()).find(p => /^https:\/\/([a-z0-9-]+\.)?arena\.ai(?:\/|$)/i.test(p.url()));
+      if (!page) throw new Error('Open Arena in the desktop workspace first');
+      const context=page.context();
+      const entry = this.#entry(account);
+      entry.context = context;
+      entry.pages.set(purpose, page);
+      entry.signature = signature;
+      return page;
+    }
+    const entry = this.#entry(account);
+
+    // A credential that changed means this Account's cookies are stale — but
+    // only this Account's, and only until it goes idle. See contextAction().
+    // `staleSince` is also what the status endpoint reports, so a context that
+    // stays stale (because its Account never goes idle) is visible rather than
+    // silently wrong.
+    if (entry.context && entry.signature !== signature && !entry.staleSince) entry.staleSince = Date.now();
+
+    const action = contextAction({
+      hasContext: Boolean(entry.context),
+      dirty: Boolean(entry.staleSince),
+      leases: entry.leases,
+    });
+    if (action === "reuse-stale" && !entry.warned) {
+      entry.warned = true;
+      log.warn("browser", "credential refreshed while this Account is busy; rebuilding when it is idle", {
+        account,
+        staleMs: Date.now() - entry.staleSince,
+      });
+    }
+    if (action === "create" || action === "rebuild") {
+      await entry.context?.close().catch(() => undefined);
+      // The old context took its pages with it, so this is a fresh Map rather
+      // than a cleanup pass — a stale entry here could only ever be a dead page.
+      entry.pages = new Map();
+      const contextOpts = {
+        // Headed Chrome must follow its actual window size (including Windows
+        // display scaling), otherwise the composer can sit below the visible area.
+        viewport: process.env.ARENA_HEADED === "1" ? null : { width: 1440, height: 900 },
+        locale: process.env.ARENA_LOCALE || "zh-CN",
+      };
+      if (this.userAgent) contextOpts.userAgent = this.userAgent;
+      entry.context = await (await this.launch()).newContext(contextOpts);
+      // Hide Playwright automation signals so reCAPTCHA v3 scores the session as
+      // a genuine browser (same reason the Arena模型助手 WebView2 build passes:
+      // a real browser engine reports navigator.webdriver === false). Mirrors the
+      // --disable-blink-features=AutomationControlled launch flag above.
+      await entry.context.addInitScript(() => {
+        try {
+          Object.defineProperty(Navigator.prototype, "webdriver", { get: () => false, configurable: true });
+        } catch {}
+        try {
+          Object.defineProperty(navigator, "webdriver", { get: () => false, configurable: true });
+        } catch {}
+        try {
+          // Drop common CDP/Playwright artifacts that bot detectors fingerprint.
+          delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+          delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+          delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+        } catch {}
+        // Spoof the rest of the navigator fingerprint so it reads like a normal
+        // desktop Edge/Chrome (mirrors the Arena模型助手 FingerprintEnvironment.js,
+        // which fakes these same props — reCAPTCHA cross-checks them).
+        const spoof = {
+          platform: "Win32",
+          vendor: "Google Inc.",
+          hardwareConcurrency: 8,
+          deviceMemory: 8,
+          maxTouchPoints: 0,
+          language: "zh-CN",
+          languages: ["zh-CN", "zh"],
+        };
+        for (const [k, v] of Object.entries(spoof)) {
+          try {
+            Object.defineProperty(Navigator.prototype, k, { get: () => v, configurable: true });
+          } catch {}
+        }
+      });
+      if (cookieHeader) await entry.context.addCookies(cookieHeaderToObjects(cookieHeader));
+      // After the Account's own cookies: the pin has to be the __vdpl this
+      // context sends, and the create-chat route has to exist before the page
+      // that will POST it is created.
+      await installDeploymentPin(entry.context, deploymentPin());
+      entry.signature = signature;
+      entry.staleSince = 0;
+      entry.warned = false;
+      if (action === "rebuild") log.info("browser", "context rebuilt for a refreshed credential", { account });
+    }
+
+    const held = entry.pages.get(purpose);
+    if (pageAction({ hasPage: Boolean(held), closed: Boolean(held?.isClosed?.()) }) === "create") {
+      entry.pages.set(purpose, await entry.context.newPage());
+    }
+    const page = entry.pages.get(purpose);
+    // Every page that carries a conversation gets the probe: a run on it leaves
+    // a trace behind, and the trace's cost spans are where the USD quota reading
+    // comes from — so it has to be registered BEFORE the navigation that carries
+    // the turn, which is why it happens here rather than at any call site.
+    // Whether a purpose carries one is part of PAGE_PURPOSES, so a new purpose
+    // has to say so rather than inheriting an answer.
+    if (PAGE_PURPOSES[purpose].probe && !this.probedPages.has(page)) {
+      this.probedPages.add(page);
+      const installed = await installProbe(page);
+      this.probeAvailable = installed.ok;
+      if (!installed.ok) {
+        this.probedPages.delete(page); // let a later call retry
+        log.warn("browser", "probe not installed", { error: installed.error });
+      }
+    }
+    return page;
+  }
+
+  /**
+   * Status only: which Accounts have a context, and whether any is waiting for a
+   * rebuild. Handles are deliberately not handed out here — a caller that needs
+   * a specific Account's page asks getPage() for it.
+   *
+   * `staleSince` is the visible half of the lease fallback: a context can wait
+   * for idle indefinitely if its Account never goes idle, and that shows up here
+   * (and in the health payload) instead of quietly serving a stale session.
+   */
+  snapshot() {
+    const accounts = [];
+    for (const [account, entry] of this.contexts) {
+      if (!entry.context) continue;
+      accounts.push({
+        account,
+        // Which purposes are holding an open page, so a page that died without
+        // being noticed shows up here rather than as an empty reading.
+        pages: [...entry.pages]
+          .filter(([, page]) => !page.isClosed())
+          .map(([purpose]) => purpose),
+        leases: entry.leases,
+        staleSince: entry.staleSince || null,
+      });
+    }
+    return { launched: Boolean(this.browser), accounts };
+  }
+
+  /** Shutdown, or recovery after the browser died: close every Account's context. */
+  async close() {
+    if (this.desktopCdpUrl) {
+      this.contexts.clear();
+      this.browser = null;
+      return; // The desktop owns the persistent browser and its lifetime.
+    }
+    for (const entry of this.contexts.values()) {
+      await entry.context?.close().catch(() => undefined);
+      entry.context = null;
+      entry.pages = new Map();
+      entry.leases = 0;
+    }
+    this.contexts.clear();
+    await this.browser?.close().catch(() => undefined);
+    this.browser = null;
+  }
+
+  /**
+   * Perform an email/password login on arena.ai.
+   * Returns { email, cookieHeader, password } on success.
+   */
+  async login(email, password) {
+    const browser = await this.launch();
+    if (this.desktopCdpUrl) {
+      const page = await this.getPage(null, 'converse');
+      const context = page.context();
+      if (!(await this.sessionIsUsable(page, email))) {
+        if (!password) throw new Error('Complete sign-in in the desktop Arena page, then sync this account');
+        let result = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          result = await page.evaluate(
+            async ({ email: loginEmail, password: loginPassword }) => {
+              const response = await fetch('/nextjs-api/sign-in/email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+              });
+              return { status: response.status, text: await response.text() };
+            },
+            { email, password }
+          );
+          if (result.status === 200) break;
+          if (result.status !== 429 && !/just a moment/i.test(result.text)) break;
+          await page.waitForTimeout(8_000);
+        }
+        if (result?.status !== 200) {
+          throw new Error(`Arena login failed (${result?.status}): ${String(result?.text || '').slice(0, 240)}`);
+        }
+        await page.waitForTimeout(1_500);
+        if (!(await this.sessionIsUsable(page, email))) {
+          throw Object.assign(new Error(`Arena signed in as ${email} but the desktop session is not usable`), {
+            code: 'session_not_usable',
+          });
+        }
+      }
+      const cookies = await context.cookies('https://arena.ai');
+      const cookieHeader = cookies.filter(c => c.domain.endsWith('arena.ai')).map(c => `${c.name}=${c.value}`).join('; ');
+      this.desktopAccountEmail = email;
+      return { email, cookieHeader, password };
+    }
+    const context = await browser.newContext({ userAgent: this.userAgent });
+    const page = await context.newPage();
+    try {
+      let result = null;
+      await page.goto("https://arena.ai/", { waitUntil: "domcontentloaded", timeout: 60_000 });
+      for (let attempt = 0; attempt < 3; attempt++) {
+        result = await page.evaluate(
+          async ({ email, password }) => {
+            const response = await fetch("/nextjs-api/sign-in/email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password }),
+            });
+            return { status: response.status, text: await response.text() };
+          },
+          { email, password }
+        );
+        if (result.status === 200) break;
+        if (result.status !== 429 && !/just a moment/i.test(result.text)) break;
+        log.warn("arena-login", `login rate-limited/blocked (${result.status}); retrying`, { attempt: attempt + 1 });
+        await page.goto("https://arena.ai/", { waitUntil: "networkidle", timeout: 60_000 }).catch(() => undefined);
+        await sleep(8_000);
+      }
+      if (result?.status !== 200) {
+        const hint = String(result?.text || "").slice(0, 240);
+        throw new Error(`Arena login failed (${result?.status}): ${hint}`);
+      }
+      await page.waitForTimeout(1_500);
+      const cookies = await context.cookies("https://arena.ai");
+      const auth = cookies.filter((c) => c.name.startsWith("arena-auth-prod-v1"));
+      if (auth.length === 0) throw new Error("Arena login returned no auth cookie");
+      // A 200 + an auth cookie is NOT proof the session works. Arena returns
+      // both for a restricted account and then serves it as logged out, which
+      // used to make this method report success for an account that could not
+      // drive a single session — and the auto-refresh loop kept "fixing" it.
+      if (!(await this.sessionIsUsable(page, email))) {
+        throw Object.assign(
+          new Error(
+            `Arena signed in as ${email} but the session is not usable ` +
+              "(/agent does not render as this account — most likely the account is restricted)"
+          ),
+          { code: "session_not_usable" }
+        );
+      }
+      const cookieHeader = cookies
+        .filter((c) => c.domain.endsWith("arena.ai"))
+        .map((c) => `${c.name}=${c.value}`)
+        .join("; ");
+      return { email, cookieHeader, password };
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  }
+
+  /**
+   * Is the signed-in session actually usable? When Arena accepts the account it
+   * renders /agent with that account's own email in the server payload; when it
+   * has quietly restricted the account, the same request renders as a visitor
+   * and the email never appears. Verified against a known-restricted account
+   * and a known-good one — the signal flips between them.
+   */
+  async sessionIsUsable(page, email) {
+    try {
+      const html = await page.evaluate(async () =>
+        (await fetch("/agent", { headers: { Accept: "text/html" } })).text()
+      );
+      return String(html).toLowerCase().includes(String(email).toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Generate a fresh reCAPTCHA v3 token (action chat_submit).
+   *
+   * Takes the whole credential, not a bare cookie header: the Account is what
+   * selects the context now. The old signature-less call also compared an empty
+   * signature against a stored one, so it rebuilt the context on every token.
+   */
+  async freshRecaptchaToken(credential, siteKey) {
+    // Minting a token means navigating and then waiting up to 30s for Google's
+    // script, so it holds the context like any other operation. Releasing without
+    // this acquire would have decremented some other operation's lease and let a
+    // refresh rebuild the context underneath it.
+    return this.withAccount(credential, async () => {
+      // Its own page, deliberately kept for as long as the context lives: it
+      // holds Google's loaded script, and re-fetching that per token would be
+      // slower and look less like a browser. It is not shared with any other
+      // purpose, so the navigation below cannot disturb a running turn.
+      const target = await this.getPage(credential, "recaptcha");
+      if (!target.url().startsWith("https://arena.ai/")) {
+        await target.goto("https://arena.ai/", { waitUntil: "domcontentloaded", timeout: 45_000 });
+      }
+      if (!(await target.evaluate(() => typeof globalThis.grecaptcha?.enterprise?.execute === "function"))) {
+        await target.addScriptTag({ url: `https://www.google.com/recaptcha/enterprise.js?render=${siteKey}` });
+      }
+      await target.waitForFunction(
+        () => typeof globalThis.grecaptcha?.enterprise?.execute === "function",
+        { timeout: 30_000 }
+      );
+      const token = await target.evaluate(
+        async ({ key }) => globalThis.grecaptcha.enterprise.execute(key, { action: "chat_submit" }),
+        { key: siteKey }
+      );
+      if (typeof token !== "string" || token.length < 80) {
+        throw new Error("Fresh Arena reCAPTCHA token was empty or too short");
+      }
+      return token;
+    });
+  }
+}

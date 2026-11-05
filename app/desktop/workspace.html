@@ -1,0 +1,48 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:"><title>工作区</title><link rel="stylesheet" href="shell.css"></head><body class="workspace-page">
+<main class="ws">
+  <div class="ws-card">
+    <p class="hint">一条隧道 + 一个 MCP 端点，云端 Arena 就能操作本地全部工具。按下面顺序用。</p>
+
+    <div class="step">
+      <div class="step-head"><span class="step-no">1</span><strong>打开工作台目录</strong></div>
+      <div class="actions"><button id="openHome" class="primary">打开 Arena 总目录</button></div>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="step-no">2</span><strong>启动隧道与 MCP</strong></div>
+      <p class="hint">点「启动」一次拉起全部，再点「状态」确认各项为 RUN。用完点「停止」。</p>
+      <div class="actions"><button id="startTunnel">启动</button><button id="stopTunnel" class="danger">停止</button><button id="tunnelStatus">状态</button></div>
+      <pre id="tunnelOutput"></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="step-no">3</span><strong>让 Arena 用上本地工具</strong></div>
+      <p class="hint">新对话：右侧进会话，点「发送到当前会话」自动发冷启动包。工具共 36 个：文件/命令、网页抓取与搜索、PDF/Word/Excel 阅读、浏览器控制、截图/鼠标/键盘、会话接力，以本机权限运行。</p>
+      <div class="actions"><button id="coldstartCopy">复制冷启动包</button><button id="coldstartSend" class="primary">发送到当前会话</button><button id="coldstartBackupCopy">复制备用冷启动包</button><button id="coldstartBackupSend" class="primary">发送备用包到当前会话</button><button id="openTunnel">打开文件夹</button></div>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="step-no">4</span><strong>接力本地会话（可选）</strong></div>
+      <p class="hint">本机 agent 由脚本自动探测（探测到哪些就列哪些）。选来源、选会话，复制或发送接力包；接力包含工作目录、待办与最近 30 条对话节选，粘贴前留意密钥。</p>
+      <div class="actions"><button id="relayRefresh" class="primary">刷新会话列表</button><label style="display:flex;align-items:center;gap:6px;margin:0">来源<select id="relaySource" style="width:auto;margin:0"></select></label></div>
+      <label>要接力的会话<select id="relaySession"></select></label>
+      <div class="actions"><button id="relayCopy">复制接力包</button><button id="relaySend" class="primary">发送到当前会话</button></div>
+      <pre id="relayOutput"></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="step-no">5</span><strong>会话记录导出 / 导入（换号续聊）</strong></div>
+      <p class="hint">导出：先在右侧打开要导出的对话，再点「导出当前对话」，完整记录存到 工作台\会话导出\。导入：点「导入到新对话」选一个导出文件，面板会新开一个对话并把记录分条发进去——被限额的号换新号续聊就用这个。</p>
+      <div class="actions"><button id="sessionExport">导出当前对话</button><button id="sessionImport" class="primary">导入到新对话</button></div>
+      <pre id="sessionIoOutput"></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="step-no">6</span><strong>鹈鹕画图测试</strong></div>
+      <p class="hint">点「发送绘画指令」把经典鹈鹕题发给右侧当前会话，它画完你打开「人工对照表」肉眼比对模型档次。</p>
+      <div class="actions"><button id="pelicanSend" class="primary">发送绘画指令</button><button id="pelicanRef">人工对照表</button></div>
+    </div>
+  </div>
+</main>
+<p id="feedback" role="status"></p>
+<script src="workspace.js"></script></body></html>

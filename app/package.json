@@ -1,0 +1,34 @@
+{
+  "name": "arena-local-bridge",
+  "version": "1.1.0",
+  "description": "Arena desktop workspace with embedded official website, encrypted bulk mailboxes, model fingerprinting and a local OpenAI-compatible API",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gandhara2077/arena-local-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Gandhara2077/arena-local-bridge/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "electron desktop",
+    "test": "node --test",
+    "build:launcher": "powershell -NoProfile -ExecutionPolicy Bypass -File bin/build-launcher.ps1",
+    "package:portable": "node bin/package-portable.mjs",
+    "desktop": "electron desktop",
+    "test:desktop": "node desktop/smoke.mjs",
+    "start:api": "node src/index.mjs"
+  },
+  "dependencies": {
+    "js-yaml": "^5.5.0",
+    "lmfpd-sdk": "^0.2.0",
+    "playwright": "^1.63.0"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0"
+  }
+}

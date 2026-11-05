@@ -1,0 +1,8 @@
+{
+  "source": "User supplied Arena 注册助手V1.0.3.zip / Arena-numeric-5.7.6",
+  "claimed_upstream": "Ikaleio/lm-detector (MIT), per embedded header; not independently authenticated",
+  "bank_built_at": "2026-10-03T07:40:28.536363+00:00",
+  "source_engine_sha256": "b6daba028bd3a06d7c81ff4418b169b5d0d7248e1bebf686bd5410dfdff95ea7",
+  "bank_sha256": "09b113c8cd46e856a41321ffb0d9674f295fba228f9afc21f9b1daa566b3996b",
+  "limitations": "Closed-set statistical inference. Reference labels and claimed accuracy not independently verified. Same-session multi-turn differs from independent reference conditions."
+}

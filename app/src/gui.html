@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arena 模型提供商 · 本地桥接 GUI</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f3f8f4;
+    --bg-2: #eaf2ec;
+    --panel: #ffffff;
+    --panel-2: #f9fcfa;
+    --panel-3: #f1f7f3;
+    --line: #e2ebe4;
+    --line-2: #cfe0d5;
+    --line-3: #b9d3c3;
+    --txt: #1b2a22;
+    --dim: #5b6d63;
+    --faint: #8a9c91;
+    --accent: #3f9d6d;
+    --accent-2: #67c493;
+    --accent-deep: #2b7d54;
+    --accent-soft: #e8f5ed;
+    --accent-soft-2: #d6efe0;
+    --ok: #2f9e6e;
+    --ok-soft: #e6f5ec;
+    --ok-line: #bfe3cd;
+    --warn-soft: #fff8e9;
+    --warn-line: #f0dfae;
+    --danger: #b8473f;
+    --danger-soft: #fdeceb;
+    --danger-line: #f2c9c5;
+    --radius: 12px;
+    --radius-sm: 10px;
+    --shadow: 0 1px 3px rgba(31, 74, 52, .05), 0 6px 18px rgba(31, 74, 52, .06);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(720px 360px at 10% -8%, rgba(103, 196, 147, .18), transparent 62%),
+      radial-gradient(680px 340px at 92% 2%, rgba(63, 157, 109, .12), transparent 60%),
+      radial-gradient(900px 520px at 50% 110%, rgba(180, 221, 197, .32), transparent 66%);
+  }
+
+  ::selection { background: rgba(63, 157, 109, .22); }
+
+  /* ── Top bar ─────────────────────────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 12px 22px;
+    background: rgba(255, 255, 255, .88);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .logo {
+    width: 34px; height: 34px; flex: none; border-radius: 10px;
+    display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--accent), var(--accent-2));
+    box-shadow: 0 4px 12px rgba(63, 157, 109, .3);
+    color: #fff;
+  }
+  .logo svg { width: 18px; height: 18px; }
+  .brand h1 { margin: 0; font-size: 14.5px; font-weight: 650; color: #17251d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand p { margin: 1px 0 0; color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; flex: none; }
+
+  .live {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 11px; border-radius: 999px; font-size: 11.5px;
+    color: var(--accent-deep); background: var(--accent-soft); border: 1px solid var(--ok-line);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(47, 158, 110, .18); }
+  .dot.pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+  /* ── Tabs ────────────────────────────────────────────────────────────── */
+  .tabs {
+    position: sticky; top: 59px; z-index: 15;
+    display: flex; gap: 6px; padding: 8px 22px;
+    background: rgba(255, 255, 255, .88);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    background: transparent; border: 1px solid transparent;
+    color: var(--dim); padding: 6px 14px; border-radius: 9px; font-size: 13px;
+  }
+  .tab:hover { background: var(--panel-3); color: var(--txt); }
+  .tab.active { background: var(--accent-soft); border-color: var(--ok-line); color: var(--accent-deep); font-weight: 620; }
+  .page.hidden { display: none; }
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 14px 22px 44px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+  .side { display: grid; gap: 12px; }
+  .single { max-width: 760px; }
+  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ── Panels ──────────────────────────────────────────────────────────── */
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .panel-title { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+  .panel-title h2 { margin: 0; font-size: 13.5px; font-weight: 620; color: #22382c; }
+  .panel-title .ico {
+    width: 24px; height: 24px; flex: none; display: grid; place-items: center;
+    border-radius: 7px; background: var(--accent-soft); border: 1px solid var(--ok-line); color: var(--accent-deep);
+  }
+  .panel-title .ico svg { width: 13px; height: 13px; }
+
+  /* ── Notice ──────────────────────────────────────────────────────────── */
+  .banner {
+    display: flex; gap: 10px; align-items: flex-start;
+    margin: 0 0 12px; padding: 11px 14px; border-radius: var(--radius-sm);
+    background: var(--warn-soft); border: 1px solid var(--warn-line); color: #6f5717; font-size: 12.5px;
+  }
+  .banner .ico { flex: none; color: #c79a2c; margin-top: 1px; }
+  .banner .ico svg { width: 15px; height: 15px; display: block; }
+  .banner b { color: #6b5315; font-weight: 640; }
+
+  /* ── Stat chips ──────────────────────────────────────────────────────── */
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+  .stat { flex: 1 1 150px; min-width: 140px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 9px 12px; box-shadow: var(--shadow); }
+  .stat .k { font-size: 11.5px; color: var(--dim); }
+  .stat .v { font-size: 19px; font-weight: 650; color: #1b2a22; line-height: 1.25; }
+  .stat .sub { font-size: 11px; color: var(--faint); word-break: break-all; }
+
+  /* ── Session cards ───────────────────────────────────────────────────── */
+  .card {
+    position: relative; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 12px; margin-bottom: 8px; background: var(--panel);
+    transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  .card:hover { border-color: var(--line-2); background: var(--panel-2); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .card.active { border-color: var(--ok-line); background: linear-gradient(180deg, #f4fbf7, #ffffff); box-shadow: 0 0 0 1px var(--accent-soft-2) inset, var(--shadow); }
+  .card.active::before {
+    content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+    border-radius: 0 3px 3px 0; background: linear-gradient(180deg, var(--accent-2), var(--accent-deep));
+  }
+  .sc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .name { font-weight: 620; font-size: 14px; color: #17251d; }
+  .meta { color: var(--dim); font-size: 12px; margin-top: 4px; word-break: break-all; }
+  .uuid { color: var(--faint); font-size: 11.5px; margin-top: 3px; word-break: break-all; font-family: var(--mono); }
+  .sc-url { margin-top: 7px; padding: 8px 10px; border-radius: 8px; background: var(--panel-3); border: 1px dashed var(--line-2); color: var(--faint); font-size: 11.5px; word-break: break-all; }
+  .sc-url b { color: #9a6d16; font-weight: 640; }
+  .sc-actions { margin-top: 9px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ── Pills ───────────────────────────────────────────────────────────── */
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11px; background: var(--ok-soft); color: var(--accent-deep); border: 1px solid var(--ok-line); line-height: 1.7; }
+  .pill.grey { background: var(--panel-3); color: var(--dim); border-color: var(--line-2); }
+  .pill.blue { background: var(--accent-soft); color: var(--accent-deep); border-color: var(--ok-line); }
+  .pill.danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-line); }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────── */
+  button {
+    cursor: pointer; font-family: inherit; font-size: 12.8px;
+    border-radius: 9px; padding: 7px 13px; border: 1px solid transparent;
+    transition: background .16s ease, border-color .16s ease, color .16s ease, transform .12s ease, opacity .16s ease, box-shadow .16s ease;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  button svg { width: 13px; height: 13px; }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: linear-gradient(140deg, var(--accent), var(--accent-deep)); border-color: #2b7d54; color: #fff; box-shadow: 0 3px 10px rgba(43, 125, 84, .26); }
+  .btn-primary:hover { background: linear-gradient(140deg, #4aab79, #2f8a5d); }
+  .btn-ghost { background: #fff; border-color: var(--line-2); color: #3d5148; }
+  .btn-ghost:hover { background: var(--panel-3); border-color: var(--line-3); color: #1b2a22; }
+  .btn-danger { background: #fff; border-color: var(--danger-line); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-soft); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+
+  /* ── Fields ──────────────────────────────────────────────────────────── */
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 11.8px; color: var(--dim); margin-bottom: 4px; }
+  .field .val { display: flex; gap: 8px; align-items: stretch; }
+  .field code {
+    flex: 1; min-width: 0; background: var(--panel-3); border: 1px solid var(--line); border-radius: 9px;
+    padding: 8px 10px; font-family: var(--mono); font-size: 12px; color: #14684a; word-break: break-all;
+    display: flex; align-items: center;
+  }
+  .copy-btn { flex: none; align-self: stretch; }
+  .copy-btn.done { background: var(--ok-soft) !important; border-color: var(--ok-line) !important; color: var(--accent-deep) !important; }
+  pre.sample { background: var(--panel-3); border: 1px solid var(--line); border-radius: 9px; padding: 11px 12px; font-size: 11.8px; color: #1c6b4c; font-family: var(--mono); overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0; }
+  .code-block { position: relative; margin-bottom: 10px; }
+  .code-block > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.8px; color: var(--dim); margin-bottom: 4px; }
+  .muted { color: var(--faint); font-size: 12px; }
+  .hint { margin-top: 8px; padding: 9px 11px; border-radius: 9px; background: var(--panel-3); border: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+  .hint b { color: #2b4636; font-weight: 640; }
+  .hint code { font-family: var(--mono); font-size: 11.5px; color: #14684a; }
+  a { color: #2b7d54; }
+
+  /* ── Empty / loading ─────────────────────────────────────────────────── */
+  .empty { display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center; padding: 22px 14px; border: 1px dashed var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2); color: var(--faint); font-size: 12.5px; }
+  .empty .ico { color: var(--accent-2); }
+  .empty .ico svg { width: 22px; height: 22px; }
+  .empty code { font-family: var(--mono); font-size: 11.5px; color: #14684a; }
+  .skeleton { height: 88px; margin-bottom: 8px; border-radius: var(--radius-sm); background: linear-gradient(90deg, #f0f6f2 25%, #e4eee8 37%, #f0f6f2 63%); background-size: 400% 100%; animation: shimmer 1.3s ease-in-out infinite; }
+  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+
+  /* ── Form controls ───────────────────────────────────────────────────── */
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .form-row > label { flex: 1 1 120px; min-width: 110px; }
+  .form-row > label > span { display: block; font-size: 11.8px; color: var(--dim); margin-bottom: 4px; }
+  input[type="text"], input[type="number"], input[type="email"], input[type="password"], textarea, select {
+    width: 100%; font-family: inherit; font-size: 12.8px; color: var(--txt);
+    background: #fff; border: 1px solid var(--line-2); border-radius: 9px; padding: 7px 10px;
+    transition: border-color .16s ease, box-shadow .16s ease;
+  }
+  textarea { resize: vertical; min-height: 58px; line-height: 1.5; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63, 157, 109, .16); }
+  input:disabled, textarea:disabled, select:disabled { background: var(--panel-3); color: var(--faint); }
+  .pick { width: 15px; height: 15px; accent-color: var(--accent); flex: none; cursor: pointer; }
+  .selbar { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; margin-bottom: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .selbar button { flex: none; }
+  .selbar .muted { flex: none; margin-left: auto; }
+  .picklist { max-height: 240px; overflow-y: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); }
+  .pickrow { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 12.5px; cursor: pointer; }
+  .pickrow:last-child { border-bottom: 0; }
+  .pickrow:hover { background: var(--panel-3); }
+  .pickrow .nm { font-weight: 600; }
+  .pickrow .sub { color: var(--faint); font-family: var(--mono); font-size: 11px; }
+
+  /* ── Progress + log ──────────────────────────────────────────────────── */
+  .progress { height: 7px; border-radius: 999px; background: var(--panel-3); border: 1px solid var(--line); overflow: hidden; margin-bottom: 9px; }
+  .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width .35s ease; }
+  .log { max-height: 210px; overflow-y: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); padding: 7px 10px; font-size: 11.8px; font-family: var(--mono); color: var(--dim); }
+  .log .line { padding: 2px 0; border-bottom: 1px solid rgba(226, 235, 228, .7); }
+  .log .line:last-child { border-bottom: 0; }
+  .log .ok { color: var(--accent-deep); }
+  .log .bad { color: var(--danger); }
+
+  /* ── Result table ────────────────────────────────────────────────────── */
+  table.res { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.res th, table.res td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.res th { color: var(--dim); font-weight: 600; font-size: 11.5px; }
+  table.res td.reply { color: var(--dim); max-width: 340px; word-break: break-word; }
+
+  /* ── Toast ───────────────────────────────────────────────────────────── */
+  #toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(6px);
+    display: flex; align-items: center; gap: 8px; background: #265743; border: 1px solid #1f4a38; color: #fff;
+    padding: 8px 15px; border-radius: 999px; font-size: 12.8px; box-shadow: 0 10px 30px rgba(31, 74, 52, .28);
+    opacity: 0; pointer-events: none; z-index: 99; transition: opacity .18s ease, transform .18s ease; max-width: 90vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast .ico { color: #9fe6c1; display: flex; }
+  #toast .ico svg { width: 14px; height: 14px; }
+  #toast.err { background: #a13b33; border-color: #8a2f28; }
+  #toast.err .ico { color: #ffd2ce; }
+
+  /* ── ModelPool board ─────────────────────────────────────────────────── */
+  .poolbar { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; flex-wrap: wrap; }
+  .poolbar input[type="search"] {
+    flex: 1 1 180px; min-width: 140px; padding: 6px 10px; font-size: 12.5px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+  }
+  .poolbar select {
+    padding: 6px 8px; font-size: 12.5px; font-family: inherit;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+  }
+  .pool { border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 8px; overflow: hidden; }
+  .pool-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; user-select: none; }
+  .pool-head:hover { background: #f4f9f5; }
+  .pool-caret { color: var(--dim); display: flex; transition: transform .15s ease; }
+  .pool.caret-open .pool-caret { transform: rotate(90deg); }
+  .pool-name { font-size: 13.5px; font-weight: 700; color: var(--ink); flex: 0 1 auto; word-break: break-all; }
+  .pool-name.unresolved { color: #8a6d1f; }
+  .pool-metrics { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; align-items: center; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; background: #eef5f0; color: #265743; border: 1px solid #dbe8de;
+    white-space: nowrap;
+  }
+  .badge.warn { background: #fdf5e6; color: #8a6d1f; border-color: #f0e2c2; }
+  .badge.dead { background: #fbeeec; color: #a13b33; border-color: #f2d6d2; }
+  .badge.dim { background: #f2f5f3; color: var(--dim); border-color: var(--line); }
+  .pool-body { display: none; padding: 0 12px 12px; }
+  .pool.caret-open .pool-body { display: block; }
+  .pool-meta { font-size: 11.8px; color: var(--dim); margin: 0 0 8px; line-height: 1.6; }
+  .pool-sub { border-top: 1px dashed var(--line); margin-top: 4px; }
+
+  /* ── Session bindings ────────────────────────────────────────────────── */
+  .bidrow { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bidrow:last-child { border-bottom: 0; }
+  .bidid { font-size: 12.3px; font-weight: 600; color: var(--ink); word-break: break-all; margin-bottom: 4px; }
+  .bidmeta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .bidmeta .uuid { margin: 0; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbdccf; border-radius: 8px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: #b3ccb9; }
+
+  @media (max-width: 560px) {
+    .topbar, .tabs { padding-left: 14px; padding-right: 14px; }
+    .wrap { padding: 12px 14px 40px; }
+    .brand p { display: none; }
+  }
+
+.continuous-option{display:flex;align-items:center;gap:9px;line-height:1.6;margin:14px 0 6px}.continuous-option input{width:auto;margin:0;flex:none}
+
+.harvest-guide summary{cursor:pointer;line-height:1.7}.harvest-guide ol{padding-left:20px;line-height:1.85}.harvest-guide li+li{margin-top:8px}
+
+/* 连抽步骤：绿色编号圆点，按顺序平铺 */
+.harvest-steps{list-style:none;counter-reset:hs;margin:4px 0 12px;padding:0}
+.harvest-steps li{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.8px;line-height:1.65;color:var(--dim)}
+.harvest-steps li:last-child{border-bottom:0;padding-bottom:2px}
+.harvest-steps li::before{counter-increment:hs;content:counter(hs);flex:none;width:19px;height:19px;border-radius:50%;background:var(--accent-soft);border:1px solid var(--ok-line);color:var(--accent-deep);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.harvest-steps li>div{min-width:0;flex:1}
+.harvest-steps b{display:block;color:#22382c;font-size:12.8px;font-weight:620;margin-bottom:1px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10" />
+        <path d="M12 13 8 8h8l-4 5Z" />
+        <path d="M2 21h20" />
+      </svg>
+    </div>
+    <div style="min-width:0">
+      <h1>Arena 模型提供商 · 本地桥接</h1>
+      <p>抽卡 → 归档 → 选用 → 接入客户端，全流程一个界面</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="live"><span class="dot pulse"></span><span>本地服务 127.0.0.1</span></span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-page="archive">模型归档 / 连接</button>
+  <button class="tab" data-page="harvest">连抽采集</button>
+</nav>
+
+<main class="wrap">
+  <div class="banner" id="banner">
+    <span class="ico" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+        <path d="M12 9v4" /><path d="M12 17h.01" />
+      </svg>
+    </span>
+    <div>提示：bridge 用<b>你登录时保存的那个 Arena 账号</b>（长期账号，过期会自动续期）在自带的有头浏览器里驱动 session；你本机浏览器可能是<b>另一个账号</b>。所以<b>不要在自己浏览器里打开这些 session</b>。驱动对话请走下面的 API / Proxy。</div>
+  </div>
+
+  <!-- ══════════ PAGE: 归档 / 连接 ══════════ -->
+  <section class="page" id="page-archive">
+    <div class="stats" id="statsBar"></div>
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <span class="ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 7h-9" /><path d="M14 17H5" />
+                <circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
+              </svg>
+            </span>
+            <h2>模型归档 / 可选 session</h2>
+          </div>
+        </div>
+        <div class="selbar">
+          <button class="btn-ghost btn-sm" id="purgeUnresolved">归档未识别</button>
+          <button class="btn-ghost btn-sm" id="refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-3.2-6.9" /><path d="M21 3v6h-6" />
+            </svg>
+            刷新
+          </button>
+          <button class="btn-ghost btn-sm" id="selAll">全选</button>
+          <button class="btn-ghost btn-sm" id="selNone">清空</button>
+          <button class="btn-ghost btn-sm" id="selDel">归档所选</button>
+          <span class="muted" id="selCount">已选 0 个</span>
+        </div>
+        <div class="poolbar">
+          <input type="search" id="poolSearch" placeholder="搜索模型 / UUID / 账号" aria-label="搜索模型池" />
+          <select id="poolSort" aria-label="排序方式">
+            <option value="count">按可用条数</option>
+            <option value="used">按最近使用</option>
+            <option value="collected">按采集时间</option>
+            <option value="name">按模型名</option>
+          </select>
+          <span class="muted" id="poolCount"></span>
+        </div>
+        <div id="sessions">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+      </section>
+
+      <div class="side">
+        <section class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
+                  <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+                </svg>
+              </span>
+              <h2>连接信息</h2>
+              <span id="activePill"></span>
+            </div>
+          </div>
+          <div id="conn"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div class="panel-title">
+              <span class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/>
+                </svg>
+              </span>
+              <h2>会话绑定</h2>
+            </div>
+          </div>
+          <div id="bindings"></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ PAGE: 连抽采集 ══════════ -->
+  <section class="page hidden single" id="page-harvest">
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <span class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
+            </svg>
+          </span>
+          <h2>连抽采集</h2>
+          <span id="harvestPill"></span>
+        </div>
+      </div>
+      <ol class="harvest-steps">
+        <li><div><b>同步账号</b>官网登录后，到顶部「账号 / 同步」同步当前账号。</div></li>
+        <li><div><b>选目标模型</b>下方列表 Ctrl 多选、Shift 连选；留空＝按次数抽卡。结果为指纹推测，不是认证。</div></li>
+        <li><div><b>设抽取方式</b>按次数抽就填次数；想抽到命中为止，勾选下方「持续抽取」。轮数 1＝快速匹配、2＝交叉参考、3＝一致性检查，只有 3 轮给出标定判定，1–2 轮只显示最接近候选。</div></li>
+        <li><div><b>开始连抽</b>选停止条件（命中任意 / 全部各命中一次），点「开始连抽」。验证码由你完成；单轮报错记一笔继续，连续 10 轮失败才自动停。</div></li>
+        <li><div><b>收结果</b>候选会话存进「模型归档」，选用后用本地 API 调用。</div></li>
+      </ol>
+      <div class="form-row" style="align-items:center;gap:10px;margin-bottom:10px"><span class="hint" id="bankInfo" style="margin:0;flex:1">参考库：加载中…</span><button class="btn-ghost btn-sm" id="bankUpdate">检查并更新参考库</button></div>
+      <label class="continuous-option"><input type="checkbox" id="hvUntilTarget" />持续抽取，直到命中目标（不限次数）</label>
+      <p id="hvModeHint" class="hint">当前：按次数抽取。勾选上方「持续抽取」可改为抽到命中为止。</p>
+      <div class="form-row">
+        <label><span>连抽次数</span><input type="number" id="hvCount" value="1" min="1" max="500" /></label>
+        <label><span>每轮间隔（毫秒）</span><input type="number" id="hvInterval" value="3000" min="0" max="60000" step="500" /></label>
+      </div>
+      <div class="form-row">
+        <label><span>每张卡的数字指纹轮数</span><select id="hvRounds"><option value="1" selected>1轮：快速匹配</option><option value="2">2轮：交叉参考</option><option value="3">3轮：更多一致性检查</option></select></label>
+      </div>
+      <div class="form-row"><label><span>目标模型（在下方列表里选：按住 Ctrl 点多个，Shift 点首尾选连续段；留空=不指定，按次数抽卡）</span><select id="hvTargets" multiple size="6" style="margin-top:8px;width:100%"></select><select id="hvTargetMode" style="margin-top:8px"><option value="any">命中任意目标后停止</option><option value="all">所有目标各命中一次后停止</option></select><label style="display:flex;gap:6px;margin-top:10px"><input id="hvRename" type="checkbox" checked />识别通过后修改官网会话名（带“指纹推测”前缀）</label></label></div>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn-primary" id="hvStart">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5-11-6.5Z" /></svg>
+          开始连抽
+        </button>
+        <button class="btn-danger" id="hvStop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="6" width="12" height="12" rx="2" />
+          </svg>
+          停止
+        </button>
+        <span class="muted" id="hvSummary">未开始</span>
+      </div>
+      <div class="progress"><i id="hvBar"></i></div>
+      <div class="log" id="hvLog"><span class="muted">未开始。</span></div>
+    </section>
+  </section>
+
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const SELECTED = new Set();
+let MODEL_NAMES = {}; // id -> 显示名（合并类别如 gpt-6-astra/6.1-sol），由参考库状态填充
+const modelName = (id) => MODEL_NAMES[id] || id;
+const SESSIONS = [];
+const ICON = {
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6Z"/></svg>',
+  bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>',
+  plug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-6 6 6 6 0 0 1-6-6Z"/><path d="M12 17v5"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+};
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+function copy(text) {
+  navigator.clipboard?.writeText(text).catch(() => {});
+}
+
+function toast(msg, isErr) {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.innerHTML = '<span class="ico"></span><span class="msg"></span>';
+    document.body.appendChild(el);
+  }
+  el.classList.toggle("err", !!isErr);
+  el.querySelector(".ico").innerHTML = isErr ? ICON.bolt : ICON.check;
+  el.querySelector(".msg").textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+// Buttons are wired with addEventListener + data-* instead of inline onclick:
+// the built-in preview panel runs the page under a CSP that blocks inline event
+// handlers, which made 「选用此模型」 look dead. See §4.27.
+function wire(root) {
+  root.querySelectorAll(".copy-btn").forEach((b) => {
+    b.addEventListener("click", () => {
+      copy(b.dataset.copy || "");
+      const html = b.innerHTML;
+      b.classList.add("done");
+      b.innerHTML = ICON.check + "<span>已复制</span>";
+      setTimeout(() => { b.classList.remove("done"); b.innerHTML = html; }, 1100);
+      toast("已复制");
+    });
+  });
+  root.querySelectorAll(".choose-btn").forEach((b) => {
+    b.addEventListener("click", () => choose(b.dataset.sid));
+  });
+  root.querySelectorAll(".pick:not(.pick-group)").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      // 单个勾选框只选中/取消自己，不再连动同模型的其他会话（整组请用模型池标题栏的勾选框）。
+      // 注意 :not(.pick-group)：组框的 class 里也有 .pick，不加排除会双绑并污染 SELECTED。
+      const sid = cb.dataset.sid;
+      if (cb.checked) SELECTED.add(sid);
+      else SELECTED.delete(sid);
+      updateSelCount();
+      syncPickRows();
+    });
+  });
+  root.querySelectorAll(".pick-group").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      // 模型池标题栏的整组勾选框：勾上=选中该模型下所有会话，取消=全部取消。
+      const model = cb.dataset.model;
+      const members = SESSIONS.filter((s) => (s.model || "") === model);
+      for (const s of members) {
+        if (cb.checked) SELECTED.add(s.sessionId);
+        else SELECTED.delete(s.sessionId);
+      }
+      updateSelCount();
+      syncPickRows();
+    });
+  });
+  root.querySelectorAll(".verify-btn").forEach((b) => {
+    b.addEventListener("click", () => verifySession(b));
+  });
+  root.querySelectorAll(".verify-model-btn").forEach((b) => {
+    b.addEventListener("click", () => verifyModelSession(b));
+  });
+  root.querySelectorAll(".open-session-btn").forEach((b) => {
+    b.addEventListener("click", async () => {
+      try {
+        // 该按钮跑在 Electron 面板里，只能走 workbench IPC；网页端不存在这个按钮。
+        await window.workbench.invoke("open-session", { url: b.dataset.url, email: b.dataset.email });
+      }
+      catch (e) { toast(e.message, true); }
+    });
+  });
+  root.querySelectorAll(".purge-btn").forEach((b) => {
+    b.addEventListener("click", async () => {
+      if (!confirm("归档该会话到 Arena「已归档」？官网侧不再显示，本地记录保留。确定？")) return;
+      b.disabled = true;
+      try { await purgeSessions([b.dataset.sid]); }
+      catch (e) { toast("归档失败：" + e.message, true); }
+      finally { b.disabled = false; }
+    });
+  });
+  root.querySelectorAll(".del-btn").forEach((b) => {
+    // 单条归档可恢复，不再经过 Electron 的原生 confirm。
+    // 该确认框在 WebContentsView 中偶发把“确定”当成取消，导致请求根本没有发出。
+    b.addEventListener("click", () => archiveSessions([b.dataset.sid], { skipConfirm: true, button: b }));
+  });
+  root.querySelectorAll(".unbind-btn").forEach((b) => {
+    b.addEventListener("click", () => unbindBinding(b.dataset.client));
+  });
+  root.querySelectorAll(".pool-head").forEach((h) => {
+    h.addEventListener("click", () => {
+      h.parentElement.classList.toggle("caret-open");
+    });
+  });
+}
+
+function updateSelCount() {
+  const n = SELECTED.size;
+  const a = $("#selCount");
+  if (a) a.textContent = "已选 " + n + " 个";
+  const all = $("#selAll");
+  const none = $("#selNone");
+  const archive = $("#selDel");
+  if (all) all.disabled = SESSIONS.length === 0 || n === SESSIONS.length;
+  if (none) none.disabled = n === 0;
+  if (archive) archive.disabled = n === 0;
+}
+
+function syncPickRows() {
+  document.querySelectorAll(".pick:not(.pick-group)").forEach((cb) => {
+    cb.checked = SELECTED.has(cb.dataset.sid);
+  });
+  // 组框状态 = 该模型下所有会话是否全部选中（组框没有 data-sid，绝不能按 sid 判定）。
+  document.querySelectorAll(".pick-group").forEach((cb) => {
+    const members = SESSIONS.filter((s) => (s.model || "") === cb.dataset.model);
+    cb.checked = members.length > 0 && members.every((s) => SELECTED.has(s.sessionId));
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function field(label, value, key) {
+  return `<div class="field"><label>${label}</label><div class="val">` +
+    `<code id="${key}">${escapeHtml(value)}</code>` +
+    `<button class="btn-ghost btn-sm copy-btn" data-copy="${escapeHtml(value)}" title="复制">${ICON.copy}<span>复制</span></button>` +
+    `</div></div>`;
+}
+
+function codeBlock(label, value) {
+  return `<div class="field code-block"><label><span>${label}</span>` +
+    `<button class="btn-ghost btn-sm copy-btn" data-copy="${escapeHtml(value)}" title="复制">${ICON.copy}<span>复制</span></button>` +
+    `</label><pre class="sample">${escapeHtml(value)}</pre></div>`;
+}
+
+function sampleCurl(origin, key, model) {
+  return `curl ${origin}/v1/chat/completions \\\n  -H "Authorization: Bearer ${key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${model}","messages":[{"role":"user","content":"你好"}]}'`;
+}
+
+function emptyState(icon, title, detailHtml) {
+  return `<div class="empty"><span class="ico">${icon}</span>` +
+    `<div style="color:#2b4636;font-size:13px;font-weight:600">${title}</div>` +
+    `<div>${detailHtml || ""}</div></div>`;
+}
+
+async function render() {
+  const btn = $("#refresh");
+  btn.disabled = true;
+  try {
+    const [sessions, status] = await Promise.all([api("/api/sessions"), api("/api/status")]);
+    BRIDGE_KEY = status.apiKey || BRIDGE_KEY;
+    const fp = await mcpApi("/api/fingerprint/status").catch(() => null);
+    if (fp && fp.accountEmail) { const acc = String(fp.accountEmail).toLowerCase(); const mine = (sessions.sessions || []).filter(x => String(x.account || x.email || "").toLowerCase() === acc); sessions.sessions = mine; sessions.groups = (sessions.groups || []).map(g => ({...g, sessions: (g.sessions || []).filter(x => String(x.account || x.email || "").toLowerCase() === acc)})).filter(g => (g.sessions || []).length > 0); }
+    if (fp && fp.accountEmail) { const acc = String(fp.accountEmail).toLowerCase(); const mine = (sessions.sessions || []).filter(x => String(x.account || x.email || "").toLowerCase() === acc); sessions.sessions = mine; sessions.groups = (sessions.groups || []).map(g => ({...g, sessions: (g.sessions || []).filter(x => String(x.account || x.email || "").toLowerCase() === acc)})).filter(g => (g.sessions || []).length > 0); }
+    BRIDGE_KEY = status.apiKey || BRIDGE_KEY;
+    renderAccounts(status); // fills ACCOUNT_QUOTA, which poolCard reads
+    renderSessions(sessions, status);
+    renderConn(status);
+    await renderBindings();
+    loadStats().catch(()=>{});
+  } catch (e) {
+    $("#sessions").innerHTML = emptyState(ICON.bolt, "读取失败", "无法连接本地 bridge：" + escapeHtml(e.message));
+    $("#conn").innerHTML = "";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── ModelPool board ────────────────────────────────────────────────────────
+// The pool is an INDEX over sessions, not a scheduler: it never picks one for
+// you, because conversation context lives on one specific Arena session and
+// switching silently would drop it. 未识别 is a missing Model, not a Model.
+let GROUPS = [];
+let POOL_QUERY = "";
+let POOL_SORT = "count";
+let LAST_PAYLOAD = null;
+let LAST_STATUS = null;
+let poolControlsWired = false;
+
+function shortTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function poolMatches(g, needle) {
+  if (!needle) return true;
+  return (
+    String(g.model || "").toLowerCase().includes(needle) ||
+    (g.accounts || []).some((a) => String(a).toLowerCase().includes(needle)) ||
+    (g.sessions || []).some((s) => String(s.sessionId).toLowerCase().includes(needle))
+  );
+}
+
+function sortGroups(groups, mode) {
+  const arr = [...groups];
+  const byName = (a, b) => String(a.model).localeCompare(String(b.model));
+  let sorted;
+  if (mode === "name") sorted = arr.sort(byName);
+  else if (mode === "used") {
+    sorted = arr.sort((a, b) => String(b.lastUsedAt || "").localeCompare(String(a.lastUsedAt || "")) || byName(a, b));
+  } else if (mode === "collected") {
+    sorted = arr.sort((a, b) => String(b.lastCollectedAt || "").localeCompare(String(a.lastCollectedAt || "")) || byName(a, b));
+  } else {
+    sorted = arr.sort((a, b) => b.ok - a.ok || byName(a, b));
+  }
+  // 未识别 is a missing Model, not a Model — never let it sort between real ones.
+  return [...sorted.filter((g) => !g.unresolved), ...sorted.filter((g) => g.unresolved)];
+}
+
+function sessionCard(s, active) {
+  const isActive = s.sessionId === active;
+  const dead = s.state === "suspected-dead";
+  // Comes from the pool grouping; the GUI never re-derives "未识别" itself.
+  const unresolved = !!s.unresolved;
+  return `
+    <article class="card ${isActive ? "active" : ""}" id="card-${s.sessionId}">
+      <div class="sc-head">
+        <input type="checkbox" class="pick" data-sid="${escapeHtml(s.sessionId)}" ${SELECTED.has(s.sessionId) ? "checked" : ""} aria-label="选择" />
+        <span class="name">${escapeHtml(modelName(s.model) || s.title)}</span>
+        ${s.effort ? `<span class="badge dim" title="后端实际运行的推理档位">档位 ${escapeHtml(s.effort)}</span>` : ""}
+        ${dead ? '<span class="badge dead">疑似失效</span>' : ""}
+        ${isActive ? '<span class="pill">当前选用</span>' : ""}
+      </div>
+      <div class="meta">${escapeHtml(s.title || "")}${s.email ? " · " + escapeHtml(s.email) : ""}${s.collectedAt ? " · " + escapeHtml(s.collectedAt) : ""}${s.lastUsedAt ? " · 用过 " + escapeHtml(shortTime(s.lastUsedAt)) : ""}${verifyBadge(s.verify)}</div>
+      <div class="uuid">${escapeHtml(s.sessionId)}</div>
+      <div class="sc-actions">
+        ${unresolved
+          ? `<button class="btn-ghost btn-sm purge-btn" data-sid="${escapeHtml(s.sessionId)}">归档</button>`
+          : `<button class="${isActive ? "btn-ghost" : "btn-primary"} btn-sm choose-btn" data-sid="${escapeHtml(s.sessionId)}" ${isActive ? "disabled" : ""}>
+              ${isActive ? ICON.check + "<span>正在使用</span>" : ICON.plug + "<span>选用此模型</span>"}
+            </button>
+            <button class="btn-ghost btn-sm verify-btn" data-sid="${escapeHtml(s.sessionId)}">体检</button>
+            <button class="btn-ghost btn-sm verify-model-btn" data-sid="${escapeHtml(s.sessionId)}">复检</button>
+            <button class="btn-ghost btn-sm open-session-btn" data-url="${escapeHtml(s.url)}" data-email="${escapeHtml(s.email || "")}">打开</button>
+            <button class="btn-ghost btn-sm del-btn" data-sid="${escapeHtml(s.sessionId)}">归档</button>`}
+      </div>
+      <div class="sc-url">Arena URL（仅供参考，<b>勿在你自己浏览器打开</b>）：<br>${escapeHtml(s.url)}</div>
+    </article>`;
+}
+
+function poolCard(g, active) {
+  const unresolved = !!g.unresolved;
+  const badges = [
+    // In the 未识别 bucket every entry is a missing Model, so "可用 N" would be
+    // a lie — it is the count of sessions still awaiting 补标.
+    unresolved ? `<span class="badge warn">待补标 ${g.total}</span>` : `<span class="badge">可用 ${g.ok}</span>`,
+    g.suspectedDead ? `<span class="badge dead">疑似失效 ${g.suspectedDead}</span>` : "",
+    g.lastUsedAt ? `<span class="badge dim">用过 ${escapeHtml(shortTime(g.lastUsedAt))}</span>` : "",
+    g.lastCollectedAt ? `<span class="badge dim">采集 ${escapeHtml(g.lastCollectedAt)}</span>` : "",
+  ].join("");
+  const accounts = (g.accounts || []).length ? escapeHtml(g.accounts.join("、")) : "—";
+  // Quota is per-account; a pool can span accounts, so show whichever of them
+  // already has a reading. Only the active account is ever refreshed.
+  const poolQuota = (g.accounts || [])
+    .map((e) => ACCOUNT_QUOTA.get(String(e).toLowerCase()))
+    .filter(Boolean);
+  const quota = poolQuota.length ? ` · ${poolQuota.map(quotaBits).join(" ")}` : "";
+  return `
+    <div class="pool caret-open" data-model="${escapeHtml(g.model)}">
+      <div class="pool-head">
+        <span class="pool-caret">${ICON.chev}</span>
+        <input type="checkbox" class="pick pick-group" data-model="${escapeHtml(g.model)}" aria-label="整组选择" title="勾上=选中该模型所有会话" />
+        <span class="pool-name ${unresolved ? "unresolved" : ""}">${escapeHtml(g.model)}</span>
+        ${unresolved ? '<span class="badge warn">待补标</span>' : ""}
+        <span class="pool-metrics">${badges}</span>
+      </div>
+      <div class="pool-body">
+        <div class="pool-meta">账号：${accounts} · ${g.total} 条 session${quota}</div>
+        <div class="pool-sub">${(g.sessions || []).map((s) => sessionCard(s, active)).join("")}</div>
+      </div>
+    </div>`;
+}
+
+function renderSessions(payload, status) {
+  const list = payload.sessions || [];
+  SESSIONS.length = 0;
+  list.forEach((s) => SESSIONS.push(s));
+  LAST_PAYLOAD = payload;
+  LAST_STATUS = status;
+  GROUPS = payload.groups || [];
+  const purgeBtn = $("#purgeUnresolved");
+  if (purgeBtn) {
+    const unresolvedCount = GROUPS.filter((g) => g.unresolved).reduce((n, g) => n + (g.sessions || []).length, 0);
+    purgeBtn.disabled = unresolvedCount === 0;
+    purgeBtn.title = unresolvedCount ? `归档 ${unresolvedCount} 条未识别会话` : "当前没有未识别会话";
+  }
+  renderPools(payload, status);
+}
+
+function renderPools(payload, status) {
+  const box = $("#sessions");
+  const needle = POOL_QUERY.trim().toLowerCase();
+  const counter = $("#poolCount");
+  if (counter) {
+    counter.textContent =
+      `${GROUPS.length} 个模型池 · ${SESSIONS.length} 条 session` + (needle ? ` · 筛出 ${GROUPS.filter((g) => poolMatches(g, needle)).length}` : "");
+  }
+  if (!GROUPS.length) {
+    box.innerHTML = emptyState(ICON.inbox, "未读到 session",
+      `请确认 <code>ARENA_ARCHIVE_DIR</code> 指向「模型归档」目录（含 记录.json）。<br>当前：${escapeHtml((payload && payload.archiveDir) || "(未设置)")}`);
+  } else {
+    const groups = sortGroups(GROUPS.filter((g) => poolMatches(g, needle)), POOL_SORT);
+    box.innerHTML = groups.length
+      ? groups.map((g) => poolCard(g, status && status.activeSession)).join("")
+      : emptyState(ICON.inbox, "没有匹配的模型池", `没有模型 / UUID / 账号匹配「${escapeHtml(POOL_QUERY)}」。`);
+  }
+  wire(box);
+  wirePoolControls();
+  updateSelCount();
+}
+
+function wirePoolControls() {
+  if (poolControlsWired) return;
+  const q = $("#poolSearch");
+  const s = $("#poolSort");
+  if (q) q.addEventListener("input", () => { POOL_QUERY = q.value; renderPools(LAST_PAYLOAD, LAST_STATUS); });
+  if (s) s.addEventListener("change", () => { POOL_SORT = s.value; renderPools(LAST_PAYLOAD, LAST_STATUS); });
+  poolControlsWired = Boolean(q || s);
+}
+
+// 复检徽标 — the archive entry carries the latest verify-model outcome.
+function verifyBadge(v) {
+  if (!v || !v.at) return "";
+  const when = String(v.at).slice(5, 16).replace("T", " ");
+  if (v.same) return ` · <span title="复检一致：仍是 ${escapeHtml(modelName(v.result))}" style="color:#2a7c52">复检✓ ${escapeHtml(when)}</span>`;
+  return ` · <span title="${escapeHtml(modelName(v.original) + " → " + (v.result ? modelName(v.result) : "未识别（最接近 " + modelName(v.nearMiss) + "）"))}" style="color:#b65149">复检⚠ ${escapeHtml(when)}</span>`;
+}
+
+async function verifyModelSession(btn) {
+  const sid = btn.dataset.sid;
+  btn.disabled = true; const html = btn.innerHTML;
+  btn.textContent = "复检中";
+  toast("复检中：发 3 轮数字题，约 2–4 分钟，请勿关闭页面");
+  try {
+    const r = await mcpApi("/api/pool/verify-model", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sid }),
+    });
+    if (r && r.error) toast("复检失败：" + r.error.message, true);
+    else if (r && r.status === "attributed" && r.same) toast(`复检一致：仍是 ${modelName(r.now)}` + (r.confidence ? `（置信度 ${Math.round(r.confidence * 100)}%）` : ""));
+    else if (r && r.status === "attributed") toast(`复检已变更：${r.original ? modelName(r.original) : "（原无标签）"} → ${modelName(r.now)}`, true);
+    else if (r && r.status === "unresolved") toast("复检无法确认：最接近 " + (r.nearMiss ? modelName(r.nearMiss) : "?"), true);
+    else toast("复检失败：" + ((r && r.error) || "未知"), true);
+  } catch (e) {
+    toast("复检失败：" + e.message, true);
+  } finally {
+    btn.disabled = false; btn.innerHTML = html;
+    await render();
+  }
+}
+
+async function verifySession(btn) {
+  const sid = btn.dataset.sid;
+  const html = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const r = await mcpApi("/api/pool/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sid }),
+    });
+    if (r && r.error) toast("体检失败：" + r.error.message, true);
+    else toast(r && r.alive ? "存活" : "疑似失效（已标记）", !(r && r.alive));
+  } catch (e) {
+    toast("体检失败：" + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = html;
+    await render();
+  }
+}
+
+
+// 删除 is the only irreversible action in this GUI, and 记录.json is the only
+// record these Sessions have — so it always confirms first, and the wording
+// 归档（原删除）：把会话在 Arena 官方侧移入「已归档」，不删本地记录。
+async function archiveSessions(ids, options = {}) {
+  const list = [...new Set((ids || []).filter(Boolean))];
+  if (!list.length) { toast("先勾选要归档的 session", true); return; }
+  if (!options.skipConfirm) {
+    const ok = window.confirm(
+      `确认归档 ${list.length} 条 session？\n\n` +
+        "· 在 Arena 官网侧把这些会话移入「已归档」（侧栏不再显示）\n" +
+        "· 本地归档记录保留，只是标记为已归档；不删除，可随时找回"
+    );
+    if (!ok) return;
+  }
+  const actionButton = options.button;
+  const oldButtonText = actionButton?.textContent;
+  if (actionButton) { actionButton.disabled = true; actionButton.textContent = "归档中…"; }
+  try {
+    const r = await keyPost("/api/pool/archive", { sessionIds: list });
+    if (r && r.error) { toast("归档失败：" + r.error.message, true); return; }
+    const failed = (r.results || []).filter((x) => !x.archived);
+    for (const id of list) SELECTED.delete(id);
+    toast(`已归档 ${r.archived}/${list.length}` + (failed.length ? `，${failed.length} 个未完成（${(failed[0].error || "?").slice(0, 80)}${failed.length > 1 ? " 等" : ""}）` : ""), failed.length > 0);
+  } catch (e) {
+    toast("归档失败：" + e.message, true);
+  } finally {
+    if (actionButton?.isConnected) {
+      actionButton.textContent = oldButtonText || "归档";
+      if (actionButton.id === "purgeUnresolved") {
+        actionButton.disabled = !GROUPS.some((g) => g.unresolved && (g.sessions || []).length);
+      } else {
+        actionButton.disabled = false;
+      }
+      updateSelCount();
+    }
+  }
+  // 归档会同时改变下方可用列表和顶部“可用 session”统计。
+  // 两处一起重拉，避免官方归档已成功但左侧仍显示旧数字。
+  await render(); await loadStats();
+}
+
+async function choose(sessionId) {
+  try {
+    const r = await api("/api/active-session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }) });
+    toast(r && r.ok ? "已选用该模型" : "选用失败：" + (r?.error?.message || "未知错误"), !(r && r.ok));
+  } catch (e) {
+    toast("选用失败：" + e.message, true);
+  }
+  await render();
+}
+
+async function renderBindings() {
+  const box = $("#bindings");
+  if (!box) return;
+  let data;
+  try {
+    data = await mcpApi("/api/pool/bindings");
+  } catch (e) {
+    box.innerHTML = emptyState(ICON.inbox, "读取失败", escapeHtml(e.message));
+    return;
+  }
+  const list = (data && data.bindings) || [];
+  if (!list.length) {
+    box.innerHTML = emptyState(ICON.inbox, "暂无绑定",
+      "客户端显式把某条 session 的 UUID 当 model 传进来时才会建立绑定，之后它会固定回到那条 session，直到你在这里解除。");
+    return;
+  }
+  box.innerHTML = list.map((b) => `
+    <div class="bidrow">
+      <div class="bidid">${escapeHtml(b.clientId)}</div>
+      <div class="bidmeta">
+        <span class="uuid">${escapeHtml(b.sessionId)}</span>
+        ${b.state === "suspected-dead" ? '<span class="badge dead">疑似失效</span>' : '<span class="badge">正常</span>'}
+      </div>
+      <button class="btn-ghost btn-sm unbind-btn" data-client="${escapeHtml(b.clientId)}">解除绑定</button>
+    </div>`).join("");
+  wire(box);
+}
+
+async function unbindBinding(clientId) {
+  try {
+    const r = await mcpApi("/api/pool/unbind", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId }),
+    });
+    toast(r && r.ok ? "已解除绑定" : "解除失败：" + ((r && r.error && r.error.message) || "未知错误"), !(r && r.ok));
+  } catch (e) {
+    toast("解除失败：" + e.message, true);
+  }
+  await render();
+}
+
+// ── 账号额度 ───────────────────────────────────────────────────────────────
+// Quota is read on demand and only for the ACTIVE account: switching credential
+// tears the shared browser context down, so a read must never touch another one.
+// Every value here is a cached observation — shown with the time it was taken,
+// never presented as live.
+let ACCOUNT_QUOTA = new Map();
+
+function quotaBits(q) {
+  if (!q) return "";
+  const bits = [];
+  if (q.percent !== null && q.percent !== undefined) {
+    bits.push(`<span class="badge">额度 ${escapeHtml(String(q.percent))}%</span>`);
+  }
+  const left = Number(q.usd?.balanceRemainingUsd);
+  const total = Number(q.usd?.allowanceUsd);
+  if (Number.isFinite(left) && Number.isFinite(total)) {
+    bits.push(`<span class="badge dim" title="已结算窗口的余额">$${left.toFixed(2)} / $${total.toFixed(2)}</span>`);
+  }
+  if (bits.length === 0) bits.push('<span class="badge dim">额度未读到</span>');
+  if (q.checkedAt) bits.push(`<span class="sub">读取于 ${escapeHtml(shortTime(q.checkedAt))}</span>`);
+  return bits.join(" ");
+}
+
+function renderAccounts(status) {
+  const list = (status && status.accounts) || [];
+  ACCOUNT_QUOTA = new Map(list.filter((a) => a.quota).map((a) => [String(a.email).toLowerCase(), a.quota]));
+  const box = $("#accounts");
+  if (!box) return;
+  if (!list.length) {
+    box.innerHTML = emptyState(ICON.inbox, "没有账号", "在下方登录 Arena 账号即可开始使用。");
+    return;
+  }
+  box.innerHTML = list
+    .map((a) => {
+      const expiry =
+        a.cookieExpirySeconds === null || a.cookieExpirySeconds === undefined ? "?" : `${a.cookieExpirySeconds}s`;
+      return `
+      <div class="bidrow">
+        <div class="bidid">${escapeHtml(a.email)}</div>
+        <div class="bidmeta">
+          ${a.disabled ? '<span class="badge dead">已禁用</span>' : '<span class="badge">可用</span>'}
+          <span class="badge dim">priority ${escapeHtml(String(a.priority))}</span>
+          <span class="badge dim">cookie ${escapeHtml(expiry)}</span>
+          ${quotaBits(a.quota)}
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderConn(status) {
+  const pill = $("#activePill");
+  const box = $("#conn");
+  if (!status.activeSession) {
+    pill.innerHTML = "";
+    box.innerHTML = emptyState(ICON.plug, "尚未选用 session", "在左侧点「选用此模型」后，这里会给出 API / Proxy 地址。");
+    return;
+  }
+  pill.innerHTML = '<span class="pill blue">已选用</span>';
+  const o = status.origin;
+  box.innerHTML =
+    field("API Base URL（粘到客户端的 API Base / Proxy）", `${o}/v1`, "apiBase") +
+    field("Proxy URL（本机代理地址，同上）", `${o}/v1`, "proxy") +
+    field("API Key", status.apiKey || "", "key") +
+    field("model · 推荐填 active（自动指向当前选中模型）", "active", "modelActive") +
+    field("model · 或填此 UUID（客户端不认 active 别名时用）", status.model, "model") +
+    field("Chat 端点", `${o}/v1/chat/completions`, "chat") +
+    codeBlock("示例 curl（用 active）", sampleCurl(o, status.apiKey, "active")) +
+    `<div class="hint">客户端把 base_url 设为 <code>${o}/v1</code>，model 填 <b>active</b> 或上面 UUID；流式加 <code>"stream":true</code>。</div>`;
+  wire(box);
+}
+
+let BRIDGE_KEY = "";
+async function mcpApi(p, opts) {
+  const r = await fetch(p, { ...opts, headers: { ...(opts?.headers || {}), Authorization: "Bearer " + BRIDGE_KEY } });
+  return r.json();
+}
+async function keyPost(p, body) {
+  return mcpApi(p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+}
+
+/* ── 归档概览 ─────────────────────────────────────────────────────────── */
+function chip(k, v, sub) {
+  return `<div class="stat"><div class="k">${k}</div>` +
+    (sub ? `<div class="sub">${escapeHtml(sub)}</div>` : `<div class="v">${escapeHtml(String(v))}</div>`) + `</div>`;
+}
+async function loadStats() {
+  try {
+    const [s, available, fp] = await Promise.all([api("/api/archive/stats"), api("/api/sessions"), mcpApi("/api/fingerprint/status").catch(() => null)]);
+    const acc = (fp && fp.accountEmail) ? String(fp.accountEmail).toLowerCase() : null;
+    const sessions = Array.isArray(available?.sessions) ? available.sessions : [];
+    const mine = acc ? sessions.filter(x => String(x.account || x.email || "").toLowerCase() === acc) : sessions;
+    const models = new Set(mine.map(x => x.model));
+    $("#statsBar").innerHTML = chip("可用 session", mine.length) + chip("模型数", models.size) + chip("归档目录", "", s.archiveDir || "(未配置)");
+  } catch { $("#statsBar").innerHTML = chip("可用 session", "?"); }
+}
+
+/* ── 连抽采集 ─────────────────────────────────────────────────────────── */
+let hvTimer = null;
+$("#hvUntilTarget").addEventListener("change",()=>{
+ const enabled=$("#hvUntilTarget").checked;$("#hvCount").disabled=enabled;
+ $("#hvModeHint").textContent=enabled?"持续模式：次数设置不生效；按下方“任意/全部目标”条件停止，也可手动停止。报错或验证未完成会停止，避免丢失现场。":"按次数模式：达到设定次数，或提前命中目标时停止。";
+});
+async function hvStatus() {
+  if (!BRIDGE_KEY) {
+    try { const st = await api("/api/status"); BRIDGE_KEY = st.apiKey || BRIDGE_KEY; } catch { /* 稍后重试 */ }
+  }
+  const s = await mcpApi("/api/harvest/status");
+  $("#harvestPill").innerHTML = s.running
+    ? `<span class="pill">连抽中 ${s.done}/${s.untilTarget ? "∞" : s.total}</span>`
+    : s.done ? `<span class="pill grey">成功 ${s.ok} / 共 ${s.done}</span>` : "";
+  $("#hvBar").style.width = (s.total ? Math.round((s.done / s.total) * 100) : s.running && s.untilTarget ? 15 : 0) + "%";
+  $("#hvSummary").textContent = s.running
+    ? `进行中 ${s.done}/${s.untilTarget ? "∞ · 等待命中目标" : s.total} · ${s.current?.phase || "处理中"}`
+    : s.targetHit ? `已匹配目标 ${(s.matchedTargets||[s.targetModel]).join("、")}，连抽已停止（指纹推测）` : s.done ? `已结束 · 归档 ${s.ok} · 失败 ${s.failed} · 共 ${s.done}` : "未开始";
+  const lines = (s.rounds || []).slice().reverse().map((r) => {
+    const tail = r.ms ? ` · ${Math.round(r.ms / 100) / 10}s` : "";
+    const via = r.via ? ` · 数字指纹${r.fingerprintRounds || ""}轮` + (r.nearMiss ? ` · 主选置信度 ${(100 * Number(r.confidence || 0)).toFixed(1)}%` + (r.nearMiss !== r.model ? ` · 第二候选 ${escapeHtml(r.nearMiss)}` : "") : "") : "";
+    const pending = !r.ok && !r.error;
+    if (pending) {
+      const phase = s.current?.index === r.index ? s.current.phase : "等待处理";
+      return `<div class="line">#${r.index} ⏳ ${escapeHtml(phase || "进行中")}</div>`;
+    }
+    return `<div class="line ${r.ok ? "ok" : "bad"}">#${r.index} ` +
+      (r.ok
+        ? (r.model ? `✓ ${escapeHtml(r.model)}` : `✓ 已入库（未识别模型${r.probeError ? "：" + escapeHtml(r.probeError) : ""}）`) + via + (r.renamed ? " · 官网已改名" : r.renameError ? " · 官网改名未完成：" + escapeHtml(r.renameError) : "") + tail
+        : `✗ ${escapeHtml(r.error || "失败")}${tail}`) + `</div>`;
+  }).join("");
+  const err = s.lastError && !s.running ? `<div class="line bad">中止原因：${escapeHtml(s.lastError)}</div>` : "";
+  $("#hvLog").innerHTML = (err + lines) || '<span class="muted">未开始。</span>';
+  $("#hvStart").disabled = s.running;
+  $("#hvStop").disabled = !s.running;
+  if (s.running && !hvTimer) hvTimer = setInterval(hvPoll, 1500);
+  if (!s.running && hvTimer) { clearInterval(hvTimer); hvTimer = null; loadStats(); render(); }
+  return s;
+}
+async function hvPoll() { try { await hvStatus(); } catch { /* keep polling */ } }
+async function hvStart() {
+  const payload = {
+    count: Number($("#hvCount").value || 0),
+    untilTarget: $("#hvUntilTarget").checked,
+    fingerprintRounds: Number($("#hvRounds").value),
+    targetModel: "",
+    targetModels: Array.from($("#hvTargets").selectedOptions,o=>o.value),
+    targetMode: $("#hvTargetMode").value,
+    renameMatched: $("#hvRename").checked,
+    intervalMs: Number($("#hvInterval").value || 0),
+  };
+  $("#hvStart").disabled = true;
+  try {
+    const r = await keyPost("/api/harvest/start", payload);
+    if (r && r.error) {
+      const msg = r.error.code === "busy"
+        ? "官网会话被本地 API 占用（有一轮对话未结束或残留）。等几秒重试；反复出现就重启一次工作台即可清除，抽卡记录不会丢。"
+        : "启动失败：" + r.error.message;
+      toast(msg, true); $("#hvStart").disabled = false; return;
+    }
+    toast(payload.untilTarget ? "已开始持续抽取，命中目标后停止" : "已开始连抽 " + payload.count + " 次");
+    await hvStatus();
+  } catch (e) { toast("启动失败：" + e.message, true); $("#hvStart").disabled = false; }
+}
+async function hvStop() {
+  $("#hvStop").disabled = true;
+  try {
+    await keyPost("/api/harvest/stop");
+    toast("已请求停止，当前一轮结束后停止");
+  } catch (e) { toast("停止失败：" + e.message, true); }
+  await hvStatus();
+}
+
+/* ── 页面切换 ─────────────────────────────────────────────────────────── */
+function switchPage(name) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.page === name));
+  document.querySelectorAll(".page").forEach((p) => p.classList.toggle("hidden", p.id !== "page-" + name));
+  if (name === "harvest") hvStatus().catch(() => undefined); // 每次切回连抽采集都重新同步服务端真实状态
+}
+document.querySelectorAll(".tab").forEach((t) => {
+  t.addEventListener("click", () => switchPage(t.dataset.page));
+});
+
+function selectAll(on) {
+  SELECTED.clear();
+  if (on) for (const session of SESSIONS) SELECTED.add(session.sessionId);
+  updateSelCount();
+  syncPickRows();
+}
+
+async function refreshArchiveView() {
+  await render(); await loadStats();
+}
+
+$("#refresh").addEventListener("click", refreshArchiveView);
+// 归档未识别 — 把未识别会话在官网侧移入「已归档」（不删本地）。
+$("#purgeUnresolved").addEventListener("click", async () => {
+  // 未识别标记只存在于分组的 sessions 上（groupSessions 装饰），原始列表没有——
+  // 所以从组里收，跟界面渲染用同一份事实。
+  const sids = (LAST_PAYLOAD?.groups || []).filter((g) => g.unresolved)
+    .flatMap((g) => (g.sessions || []).map((s) => s.sessionId));
+  if (!sids.length) { toast("没有未识别的会话"); return; }
+  const btn = $("#purgeUnresolved");
+  await archiveSessions(sids, { skipConfirm: true, button: btn });
+});
+async function purgeSessions(sids) {
+  const r = await mcpApi("/api/pool/archive", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionIds: sids }),
+  });
+  if (r && r.error) { toast("归档失败：" + r.error.message, true); return; }
+  const failed = (r.results || []).filter((x) => !x.archived);
+  toast(`归档完成：成功 ${r.archived}/${sids.length}` + (failed.length ? `，${failed.length} 个未完成（${(failed[0].error || "?").slice(0, 80)}${failed.length > 1 ? " 等" : ""}）` : ""), failed.length > 0);
+  await refreshArchiveView();
+}
+$("#hvStart").addEventListener("click", hvStart);
+$("#hvStop").addEventListener("click", hvStop);
+$("#selAll").addEventListener("click", () => selectAll(true));
+$("#selNone").addEventListener("click", () => selectAll(false));
+$("#selDel").addEventListener("click", () => archiveSessions([...SELECTED], { skipConfirm: true, button: $("#selDel") }));
+loadStats();
+async function loadBankInfo() {
+  try {
+    const s = await mcpApi('/api/fingerprint/status');
+    const sel = $("#hvTargets");
+    const account = s.accountEmail || 'default'; const keepKey = 'hvTargets_' + account; const keep = new Set(JSON.parse(localStorage.getItem(keepKey) || '[]')); sel.onchange = () => localStorage.setItem(keepKey, JSON.stringify(Array.from(sel.selectedOptions, o => o.value)));
+    sel.innerHTML = "";
+    MODEL_NAMES = s.modelNames || {};
+    // 按显示名字母排序——上游顺序是入库时间序，5.5 这类新模型会被排在组尾，肉眼难找。
+    for (const id of [...(s.modelIds || [])].sort((a, b) => modelName(a).localeCompare(modelName(b)))) {
+      const choice = document.createElement("option");
+      choice.value = id; choice.textContent = modelName(id);
+      if (keep.has(id)) choice.selected = true;
+      sel.append(choice);
+    }
+    const up = s.upstream || {};
+    const when = String(s.builtAt || "").replace("T", " ").slice(0, 16);
+    const warn = up.ready ? "" : "（上游库未就绪，正用内置 5.7.6 兜底）";
+    $("#bankInfo").textContent = `参考库：${s.source || "?"} · ${s.modelIds?.length || 0} 个模型 · 构建于 ${when || "未知"} · 当前账号：${account} · 本账号已选：${keep.size} 个 ${warn}`;
+  } catch { $("#bankInfo").textContent = "参考库：状态读取失败"; }
+}
+$("#bankUpdate").addEventListener("click", async () => {
+  const btn = $("#bankUpdate");
+  btn.disabled = true; const old = btn.textContent;
+  btn.textContent = "更新中（下载约 17MB，请稍等）…";
+  try {
+    const r = await keyPost("/api/fingerprint/update-bank");
+    if (r && r.error) toast("更新失败：" + r.error.message, true);
+    else if (r && r.ready) { toast(`参考库已更新：${String(r.builtAt || "").slice(0, 16)} · ${(r.modelIds || []).length} 个模型`); await loadBankInfo(); }
+    else toast("更新结果异常，请看后端日志", true);
+  } catch (e) { toast("更新失败：" + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = old; }
+});
+render().then(() => loadBankInfo());
+let lastBankAccount = null;
+setInterval(async () => {
+  try {
+    const s = await mcpApi('/api/fingerprint/status');
+    const acc = s.accountEmail || 'default';
+    if (lastBankAccount === null) { lastBankAccount = acc; return; }
+    if (acc !== lastBankAccount) { lastBankAccount = acc; await loadBankInfo(); }
+  } catch {}
+}, 5000);
+hvStatus().catch(() => undefined);
+</script>
+</body>
+</html>

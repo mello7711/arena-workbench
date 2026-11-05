@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;height:100%;overflow:hidden;background:#f3f8f4}
+#bar{position:fixed;left:0;top:0;bottom:0;width:14px;cursor:col-resize}
+#line{position:fixed;left:6px;top:0;bottom:0;width:2px;background:#dce9e0;transition:background .12s,width .12s}
+#bar:hover+#line,body.dragging #line{background:#4aab79;width:3px}
+#hint{position:fixed;left:16px;top:10px;font:12px/1.6 'Segoe UI','Microsoft YaHei',sans-serif;color:#2b7d54;background:#fff;border:1px solid #b9d3c3;border-radius:8px;padding:4px 10px;display:none;pointer-events:none;box-shadow:0 2px 8px #163d2310;white-space:nowrap;z-index:2}
+body.dragging #hint{display:block}
+</style></head><body>
+<div id="hint">拖动调整左窗宽度</div>
+<div id="bar"></div><div id="line"></div>
+<script>
+const bar=document.getElementById('bar');
+const body=document.body;
+bar.addEventListener('pointerdown',e=>{
+  if(!window.dividerBridge)return;
+  e.preventDefault();
+  bar.setPointerCapture(e.pointerId);
+  body.classList.add('dragging');
+  window.dividerBridge.begin();
+  let last=e.clientX;
+  const move=ev=>{
+    const delta=ev.clientX-last;
+    if(delta){last=ev.clientX;window.dividerBridge.drag(delta);}
+  };
+  const up=()=>{
+    body.classList.remove('dragging');
+    bar.removeEventListener('pointermove',move);
+    bar.removeEventListener('pointerup',up);
+    bar.removeEventListener('pointercancel',up);
+    try{bar.releasePointerCapture(e.pointerId);}catch(_){}
+    window.dividerBridge.end();
+  };
+  bar.addEventListener('pointermove',move);
+  bar.addEventListener('pointerup',up);
+  bar.addEventListener('pointercancel',up);
+});
+</script></body></html>

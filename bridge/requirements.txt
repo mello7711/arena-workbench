@@ -1,0 +1,12 @@
+mcp==1.26.0
+mss
+pyautogui
+pillow
+uvicorn
+httpx
+pypdf
+python-docx
+openpyxl
+playwright
+cryptography
+python-dotenv
