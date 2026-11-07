@@ -247,7 +247,7 @@ ipcMain.handle('workbench',async(event,action,data={})=>{
   }
   return {ok:true,file:pick.filePaths[0],title:String(data.title||'').slice(0,80),parts:sent.length,chars:parts.reduce((n,p)=>n+p.length,0),sent};}
  case 'pelican-send':{
-  const r=await arenaSend('请用 SVG 画一只骑自行车的鹈鹕。要求：只输出 <svg> 代码本身，不要任何解释文字或代码块标记。要输出动画。');
+  const r=await arenaSend('请用 SVG 输出一只骑自行车的鹈鹕的 2D 动画。要求：创建一个 HTML，内容是 SVG 绘制的鹈鹕骑自行车 2D 动画，动画自动循环播放，不要任何解释文字或代码块标记。');
   return {ok:true,detail:r};}
  case 'pelican-ref':{
   const f=path.join(EXAM_DIR,'鹈鹕参考','打开看图.html');
