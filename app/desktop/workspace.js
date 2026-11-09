@@ -9,8 +9,11 @@ action('startTunnel',async()=>{out('#tunnelOutput','正在执行…');const r=aw
 action('stopTunnel',async()=>{out('#tunnelOutput','正在执行…');const r=await call('integration-control',{action:'stop',what:'all'});out('#tunnelOutput',r.output);});
 action('tunnelStatus',async()=>{out('#tunnelOutput','正在执行…');const r=await call('integration-control',{action:'status',what:'all'});out('#tunnelOutput',r.output);});
 action('openTunnel',()=>call('integration-open',{kind:'tunnel'}));
-action('pelicanSend',async()=>{await call('pelican-send');toast('鹈鹕绘画指令已发送到当前会话');});
-action('pelicanRef',()=>call('pelican-ref'));
+
+
+
+
+
 
 action('coldstartCopy',async()=>{await call('coldstart-copy');toast('冷启动包已复制：整段粘给全新 Arena 对话即可');});
 action('coldstartSend',async()=>{const r=await call('coldstart-send');toast('冷启动包已发送到当前会话（'+(r.detail&&r.detail.how==='enter'?'回车':'发送按钮')+'）');});
