@@ -109,7 +109,7 @@
   .page.hidden { display: none; }
 
   /* ── Layout ──────────────────────────────────────────────────────────── */
-  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 14px 22px 44px; }
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 14px 22px 96px; }
   .layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 12px; align-items: start; }
   .side { display: grid; gap: 12px; }
   .single { max-width: 760px; }
@@ -313,11 +313,11 @@
 
   @media (max-width: 560px) {
     .topbar, .tabs { padding-left: 14px; padding-right: 14px; }
-    .wrap { padding: 12px 14px 40px; }
+    .wrap { padding: 12px 14px 96px; }
     .brand p { display: none; }
   }
 
-.continuous-option{display:flex;align-items:center;gap:9px;line-height:1.6;margin:14px 0 6px}.continuous-option input{width:auto;margin:0;flex:none}
+.continuous-option{display:flex;align-items:center;gap:9px;line-height:1.6;margin:14px 0 10px}.continuous-option input{width:auto;margin:0;flex:none}
 
 .harvest-guide summary{cursor:pointer;line-height:1.7}.harvest-guide ol{padding-left:20px;line-height:1.85}.harvest-guide li+li{margin-top:8px}
 
@@ -328,6 +328,67 @@
 .harvest-steps li::before{counter-increment:hs;content:counter(hs);flex:none;width:19px;height:19px;border-radius:50%;background:var(--accent-soft);border:1px solid var(--ok-line);color:var(--accent-deep);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
 .harvest-steps li>div{min-width:0;flex:1}
 .harvest-steps b{display:block;color:#22382c;font-size:12.8px;font-weight:620;margin-bottom:1px}
+.steps-details{margin:2px 0 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+.steps-details summary{cursor:pointer;padding:9px 12px;font-size:12.8px;font-weight:650;color:#22382c;list-style:none}
+.steps-details summary::-webkit-details-marker{display:none}
+.steps-details .harvest-steps{margin:0;padding:2px 12px 10px}
+
+/* ── 连抽采集：次数 / 评分卡片 / 归档区 ───────────────────────────── */
+.hv-block{margin:0 0 14px}
+.hv-block>h3{margin:0 0 8px;font-size:12.5px;font-weight:650;color:#22382c}
+.hv-num{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.hv-num label>span{display:block;font-size:11.8px;color:var(--dim);margin-bottom:4px}
+.hv-num label.disabled>span{color:var(--faint)}
+.hv-inf{display:flex;align-items:center;gap:8px;font-size:12.8px;color:var(--txt);cursor:pointer}
+.hv-inf input{width:15px;height:15px;accent-color:var(--accent);flex:none;cursor:pointer}
+.hv-score{display:grid;gap:8px}
+.score-card{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.score-card:hover{border-color:var(--line-2);background:#f4faf6}
+.score-card.on{border-color:var(--ok-line);background:linear-gradient(180deg,#f0f9f3,#fff);box-shadow:0 0 0 1px var(--accent-soft-2) inset}
+.score-card input{margin-top:3px;width:15px;height:15px;accent-color:var(--accent);flex:none;cursor:pointer}
+.score-card>span{display:block;min-width:0;flex:1}
+.score-card .sc-t{display:block;font-size:13px;font-weight:650;color:#17251d}
+.score-card .sc-d{display:block;font-size:12px;color:var(--dim);line-height:1.55;margin-top:1px}
+.score-card .sc-b{display:block;font-size:11.5px;color:var(--faint);margin-top:3px}
+.score-card .sc-b b{color:var(--accent-deep);font-weight:650}
+.hv-arc{margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+.hv-arc .panel-head{margin-bottom:8px}
+.hv-arc .selbar{flex-wrap:wrap;overflow:visible}
+.hv-arc-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px}
+.hv-arc-row label{flex:1 1 160px;min-width:140px}
+.hv-arc-row label>span{display:block;font-size:11.8px;color:var(--dim);margin-bottom:4px}
+.hv-arc-row .muted{padding-bottom:8px}
+.hv-tier{display:flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line-2);border-radius:8px;background:#fff;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.hv-tier input{width:14px;height:14px;accent-color:var(--accent);margin:0}
+.hv-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+@media (max-width:560px){.hv-num{grid-template-columns:1fr}}
+/* ── 第一部分 · 指纹抽取 ── */
+.fp-panel{margin-top:16px;margin-bottom:48px;padding-bottom:20px}
+.fp-panel .panel-head{margin-bottom:8px}
+.fp-panel .harvest-steps{margin:4px 0 8px}
+.fp-panel .harvest-steps li{padding:6px 0}
+.fp-panel .form-row{margin-bottom:8px}
+.fp-panel .fp-bank-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.fp-panel .fp-bank-row .hint{flex:1 1 240px;min-width:200px;margin:0}
+.fp-panel .fp-bank-row button{flex:none;white-space:nowrap}
+.fp-panel #fpModeHint{margin-top:0;margin-bottom:16px}
+.fp-panel .hv-block{margin-bottom:16px}
+.fp-panel .hv-block>h3{margin:0 0 6px}
+.fp-num{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.fp-num label{min-width:0}
+.fp-num label>span{display:block;font-size:11.8px;color:var(--dim);margin-bottom:4px;line-height:1.4}
+.fp-num select,.fp-num input{width:100%;min-width:0}
+.fp-panel .hv-actions{margin-top:6px;margin-bottom:12px}
+.fp-panel .progress{margin-bottom:8px}
+.fp-panel .log{margin-bottom:8px}
+.fp-rename{display:flex;align-items:flex-start;gap:8px;margin-top:10px;line-height:1.5}
+.fp-rename input{flex:none;width:15px;height:15px;margin-top:2px;accent-color:var(--accent)}
+#fpTargets{margin-top:8px;width:100%}
+.fp-target-hint{display:block;margin:0 0 8px}
+@media (max-width:680px){.fp-num{grid-template-columns:1fr;row-gap:8px}}
+/* ── 鹈鹕对话 · 按分数分类（照搬主页模型归档页）── */
+.pel-list{margin-top:0}
+.pel-list .pool{margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -351,8 +412,8 @@
 </header>
 
 <nav class="tabs">
-  <button class="tab active" data-page="archive">模型归档 / 连接</button>
-  <button class="tab" data-page="harvest">连抽采集</button>
+  <button class="tab active" data-page="archive">模型 · 指纹</button>
+  <button class="tab" data-page="harvest">鹈鹕 · 评分</button>
 </nav>
 
 <main class="wrap">
@@ -443,11 +504,9 @@
         </section>
       </div>
     </div>
-  </section>
 
-  <!-- ══════════ PAGE: 连抽采集 ══════════ -->
-  <section class="page hidden single" id="page-harvest">
-    <section class="panel">
+    <!-- ── 第一部分 · 指纹抽取 ── -->
+    <section class="panel fp-panel">
       <div class="panel-head">
         <div class="panel-title">
           <span class="ico" aria-hidden="true">
@@ -455,8 +514,8 @@
               <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
             </svg>
           </span>
-          <h2>连抽采集</h2>
-          <span id="harvestPill"></span>
+          <h2>指纹抽取 · 连抽采集</h2>
+          <span id="fpPill"></span>
         </div>
       </div>
       <ol class="harvest-steps">
@@ -466,18 +525,125 @@
         <li><div><b>开始连抽</b>选停止条件（命中任意 / 全部各命中一次），点「开始连抽」。验证码由你完成；单轮报错记一笔继续，连续 10 轮失败才自动停。</div></li>
         <li><div><b>收结果</b>候选会话存进「模型归档」，选用后用本地 API 调用。</div></li>
       </ol>
-      <div class="form-row" style="align-items:center;gap:10px;margin-bottom:10px"><span class="hint" id="bankInfo" style="margin:0;flex:1">参考库：加载中…</span><button class="btn-ghost btn-sm" id="bankUpdate">检查并更新参考库</button></div>
-      <label class="continuous-option"><input type="checkbox" id="hvUntilTarget" />持续抽取，直到命中目标（不限次数）</label>
-      <p id="hvModeHint" class="hint">当前：按次数抽取。勾选上方「持续抽取」可改为抽到命中为止。</p>
-      <div class="form-row">
-        <label><span>连抽次数</span><input type="number" id="hvCount" value="1" min="1" max="500" /></label>
-        <label><span>每轮间隔（毫秒）</span><input type="number" id="hvInterval" value="3000" min="0" max="60000" step="500" /></label>
+      <div class="fp-bank-row"><span class="hint" id="fpBankInfo">参考库：加载中…</span><button class="btn-ghost btn-sm" id="fpBankUpdate">检查并更新参考库</button></div>
+      <label class="continuous-option"><input type="checkbox" id="fpUntilTarget" />持续抽取，直到命中目标（不限次数）</label>
+      <p id="fpModeHint" class="hint">当前：按次数抽取。勾选上方「持续抽取」可改为抽到命中为止。</p>
+      <div class="hv-block">
+        <h3>次数与轮数</h3>
+        <div class="fp-num">
+          <label><span>连抽次数</span><input type="number" id="fpCount" value="1" min="1" max="500" /></label>
+          <label><span>每轮间隔（毫秒）</span><input type="number" id="fpInterval" value="3000" min="0" max="60000" step="500" /></label>
+          <label><span>每张卡的数字指纹轮数</span><select id="fpRounds"><option value="1" selected>1轮：快速匹配</option><option value="2">2轮：交叉参考</option><option value="3">3轮：更多一致性检查</option></select></label>
+        </div>
       </div>
-      <div class="form-row">
-        <label><span>每张卡的数字指纹轮数</span><select id="hvRounds"><option value="1" selected>1轮：快速匹配</option><option value="2">2轮：交叉参考</option><option value="3">3轮：更多一致性检查</option></select></label>
+      <div class="hv-block">
+        <h3>目标模型</h3>
+        <p class="hint fp-target-hint">在下方列表里选：按住 Ctrl 点多个，Shift 点首尾选连续段；留空=不指定，按次数抽卡</p><select id="fpTargets" multiple size="4"></select>
+        <p class="hint" id="fpTargetsEmpty" style="display:none">目标模型列表为空：参考库还没加载出来，点上方「检查并更新参考库」试试；留空也可以直接按次数抽卡。</p>
+        <select id="fpTargetMode" style="margin-top:8px"><option value="any">命中任意目标后停止</option><option value="all">所有目标各命中一次后停止</option></select>
+        <label class="fp-rename"><input id="fpRename" type="checkbox" checked /><span>识别通过后修改官网会话名（带“指纹推测”前缀）</span></label>
       </div>
-      <div class="form-row"><label><span>目标模型（在下方列表里选：按住 Ctrl 点多个，Shift 点首尾选连续段；留空=不指定，按次数抽卡）</span><select id="hvTargets" multiple size="6" style="margin-top:8px;width:100%"></select><select id="hvTargetMode" style="margin-top:8px"><option value="any">命中任意目标后停止</option><option value="all">所有目标各命中一次后停止</option></select><label style="display:flex;gap:6px;margin-top:10px"><input id="hvRename" type="checkbox" checked />识别通过后修改官网会话名（带“指纹推测”前缀）</label></label></div>
-      <div class="row" style="margin-bottom:10px">
+      <div class="hv-actions">
+        <button class="btn-primary" id="fpStart">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5-11-6.5Z" /></svg>
+          开始连抽
+        </button>
+        <button class="btn-danger" id="fpStop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="6" width="12" height="12" rx="2" />
+          </svg>
+          停止
+        </button>
+        <span class="muted" id="fpSummary">未开始</span>
+      </div>
+      <div class="progress"><i id="fpBar"></i></div>
+      <div class="log" id="fpLog"><span class="muted">未开始。</span></div>
+    </section>
+  </section>
+
+  <!-- ══════════ PAGE: 连抽采集 ══════════ -->
+  <section class="page hidden single" id="page-harvest">
+    <div class="stats" id="pelStatsBar"><div class="stat"><div class="k">可用对话数</div><div class="v">0</div></div><div class="stat"><div class="k">分数档数</div><div class="v">0</div></div><div class="stat"><div class="k">归档目录</div><div class="sub">选妃资料\鹈鹕</div></div></div>
+    <div style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><button class="btn-ghost btn-sm" id="pelRefBtn">鹈鹕参考</button><span class="muted" id="pelRefMsg"></span></div>
+    <!-- ── 鹈鹕对话 · 按分数分类（照搬主页模型归档页）── -->
+    <section class="panel pel-list">
+      <div class="panel-head">
+        <div class="panel-title">
+          <span class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 7h-9" /><path d="M14 17H5" />
+              <circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
+            </svg>
+          </span>
+          <h2>鹈鹕归档 / 可选对话</h2>
+        </div>
+      </div>
+      <div class="selbar">
+        <button class="btn-ghost btn-sm" id="pelRefresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3.2-6.9" /><path d="M21 3v6h-6" />
+          </svg>
+          刷新
+        </button>
+        <button class="btn-ghost btn-sm" id="pelSelAll">全选</button>
+        <button class="btn-ghost btn-sm" id="pelSelNone">清空</button>
+        <button class="btn-ghost btn-sm" id="pelSelDel">归档所选</button>
+        <button class="btn-ghost btn-sm" id="pelSelUnscored">归档未评分</button>
+        <span class="muted" id="pelSelCount">已选 0 个</span>
+      </div>
+      <div class="poolbar">
+        <input type="search" id="pelSearch" placeholder="搜索分数 / 序号 / 会话" aria-label="搜索鹈鹕对话" />
+        <select id="pelSort" aria-label="排序方式">
+          <option value="count">按可用条数</option>
+          <option value="score">按分数</option>
+          <option value="collected">按采集时间</option>
+          <option value="tier">按档位</option>
+        </select>
+        <span class="muted" id="pelCount"></span>
+      </div>
+      <div id="pelSessions">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <span class="ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
+            </svg>
+          </span>
+          <h2>鹈鹕评分</h2>
+          <span id="harvestPill"></span>
+        </div>
+      </div>
+      <ol class="harvest-steps">
+        <li><div><b>同步账号</b>官网登录后，到顶部「账号 / 同步」同步当前账号。</div></li>
+        <li><div><b>设次数与间隔</b>填次数（想跑几次填几）；勾无限次就一直跑到点停止；每完成一次等间隔秒数再开始下一次，间隔默认 30 秒。</div></li>
+        <li><div><b>评分</b>三档：不评分只画图收图、不调评委；静帧评分只用首帧打分、满分 80、动画压 0、最快，分档 &lt;45 差、45–48 中、49–52 良、≥53 优；静动评分首帧 + 6 帧拼图一起打、满分 100、最久最综合，分档 &lt;60 差、60–65 中、66–72 良、&gt;72 优。评分时分数写进对话名和文件夹名，如静帧 R1-1_51静、动图 R1-1_73，不评分只按序号命名；档位（优/良/中/差）不写进名字，只用来按分数归档。</div></li>
+        <li><div><b>开始连抽</b>点「开始连抽」。验证码由你完成；一个对话发完、等图、收图、存好，再建下一个对话；单个对话 600 秒没出图记失败、跳下一个，不卡住整轮。</div></li>
+        <li><div><b>收结果</b>图片存到 选妃资料\鹈鹕\日期\，图片名和改名后的对话名一致，方便肉眼比对。</div></li>
+      </ol>
+      <div class="hv-block">
+        <h3>次数与间隔</h3>
+        <div class="hv-num">
+          <label><span>次数</span><input type="number" id="hvTimes" value="5" min="1" max="10000" /></label>
+          <label><span>间隔（秒）</span><input type="number" id="hvInterval" value="30" min="0" max="3600" step="10" /></label>
+        </div>
+        <label class="hv-inf"><input id="hvInfinite" type="checkbox" /><span>无限次（一直跑到点停止）</span></label>
+        <p class="hint" style="margin-bottom:0">一个对话发完、等图、收图、存好，再建下一个对话。</p>
+      </div>
+      <div class="hv-block">
+        <h3>评分</h3>
+        <div class="hv-score">
+          <label class="score-card on"><input type="radio" name="hvScoreMode" value="none" checked /><span><span class="sc-t">不评分</span><span class="sc-d">只画图收图，不调评委。</span><span class="sc-b">最快 · 只按序号命名</span></span></label>
+          <label class="score-card"><input type="radio" name="hvScoreMode" value="still" /><span><span class="sc-t">静帧评分</span><span class="sc-d">只用首帧打分，动画压 0，最快。</span><span class="sc-b">满分 80 · <b>&lt;45 差 / 45–48 中 / 49–52 良 / ≥53 优</b></span></span></label>
+          <label class="score-card"><input type="radio" name="hvScoreMode" value="motion" /><span><span class="sc-t">静动评分</span><span class="sc-d">首帧 + 6 帧拼图一起打，最久最综合。</span><span class="sc-b">满分 100 · <b>&lt;60 差 / 60–65 中 / 66–72 良 / &gt;72 优</b></span></span></label>
+        </div>
+      </div>
+      <div class="hv-actions">
         <button class="btn-primary" id="hvStart">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5-11-6.5Z" /></svg>
           开始连抽
@@ -493,6 +659,7 @@
       <div class="progress"><i id="hvBar"></i></div>
       <div class="log" id="hvLog"><span class="muted">未开始。</span></div>
     </section>
+
   </section>
 
 </main>
@@ -500,7 +667,7 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const SELECTED = new Set();
-let MODEL_NAMES = {}; // id -> 显示名（合并类别如 gpt-6-astra/6.1-sol），由参考库状态填充
+let MODEL_NAMES = {}; // id -> 显示名（合并类别如 gpt-6-astra/6.1-sol）
 const modelName = (id) => MODEL_NAMES[id] || id;
 const SESSIONS = [];
 const ICON = {
@@ -782,8 +949,9 @@ function poolCard(g, active) {
     .map((e) => ACCOUNT_QUOTA.get(String(e).toLowerCase()))
     .filter(Boolean);
   const quota = poolQuota.length ? ` · ${poolQuota.map(quotaBits).join(" ")}` : "";
+  // 模型池默认收起：只渲染标题行，.pool-body 默认隐藏，点标题才展开。
   return `
-    <div class="pool caret-open" data-model="${escapeHtml(g.model)}">
+    <div class="pool" data-model="${escapeHtml(g.model)}">
       <div class="pool-head">
         <span class="pool-caret">${ICON.chev}</span>
         <input type="checkbox" class="pick pick-group" data-model="${escapeHtml(g.model)}" aria-label="整组选择" title="勾上=选中该模型所有会话" />
@@ -831,6 +999,9 @@ function renderPools(payload, status) {
       ? groups.map((g) => poolCard(g, status && status.activeSession)).join("")
       : emptyState(ICON.inbox, "没有匹配的模型池", `没有模型 / UUID / 账号匹配「${escapeHtml(POOL_QUERY)}」。`);
   }
+  // 模型池默认全部收起：每次渲染后都去掉展开态，只留模型名一行；
+  // 点 .pool-head 才加回 caret-open 展开看里面的 session。
+  box.querySelectorAll(".pool.caret-open").forEach((el) => el.classList.remove("caret-open"));
   wire(box);
   wirePoolControls();
   updateSelCount();
@@ -1092,20 +1263,102 @@ async function loadStats() {
 
 /* ── 连抽采集 ─────────────────────────────────────────────────────────── */
 let hvTimer = null;
-$("#hvUntilTarget").addEventListener("change",()=>{
- const enabled=$("#hvUntilTarget").checked;$("#hvCount").disabled=enabled;
- $("#hvModeHint").textContent=enabled?"持续模式：次数设置不生效；按下方“任意/全部目标”条件停止，也可手动停止。报错或验证未完成会停止，避免丢失现场。":"按次数模式：达到设定次数，或提前命中目标时停止。";
-});
+// 服务端错误可能是字符串，也可能是 {message} 对象；直接拼接对象会显示 [object Object]。
+function hvErrText(e) {
+  if (e == null) return "未知错误";
+  if (typeof e === "string") return e || "未知错误";
+  if (e instanceof Error) return e.message || "未知错误";
+  if (typeof e.message === "string" && e.message) return e.message;
+  if (e.error != null) return hvErrText(e.error);
+  try { return JSON.stringify(e); } catch { return String(e); }
+}
+async function hvEnsureKey() {
+  if (BRIDGE_KEY) return;
+  try { const st = await api("/api/status"); BRIDGE_KEY = st.apiKey || BRIDGE_KEY; } catch { /* 稍后重试 */ }
+}
 async function hvStatus() {
+  await hvEnsureKey();
+  const s = await mcpApi("/api/pelican/status");
+  const done = (s.results || []).length;
+  const total = s.infinite ? 0 : (s.total || (s.totalRounds ? s.totalRounds * (s.x || 5) : 0));
+  const okN = (s.results || []).filter((r) => r.ok).length;
+  $("#harvestPill").innerHTML = s.running
+    ? `<span class="pill">鹈鹕收图中 ${done}/${total || "∞"}</span>`
+    : done ? `<span class="pill grey">成功 ${okN} / 共 ${done}</span>` : "";
+  $("#hvBar").style.width = (total ? Math.round((done / total) * 100) : s.running ? 15 : 0) + "%";
+  $("#hvSummary").textContent = s.running
+    ? `进行中 ${done}/${total || "∞"} · ${s.current ? "第 " + s.current.index + " 次 " + (s.current.phase || "") : "处理中"}`
+    : done ? `已结束 · 成功 ${okN} · 失败 ${done - okN} · 共 ${done}` : "未开始";
+  const lines = (s.results || []).slice().reverse().map((r) => {
+    if (r.ok) return `<div class="line ok">#${r.index} ✓ ${escapeHtml(r.title || "")} · ${escapeHtml(r.file || "")}${r.via ? " · " + escapeHtml(r.via) : ""}${r.durationSec != null ? " · 用时 " + r.durationSec + " 秒" : ""}${r.score === "待评分" && r.scoreError ? " · 评分失败：" + escapeHtml(r.scoreError) : ""}${r.renamed ? " · 官网已改名" : r.renameError ? " · 官网改名未完成：" + escapeHtml(r.renameError) : ""}</div>`;
+    return `<div class="line bad">#${r.index} ✗ ${escapeHtml(r.reason || "失败")}${r.durationSec != null ? " · 用时 " + r.durationSec + " 秒" : ""}</div>`;
+  }).join("");
+  const err = s.lastError && !s.running && done ? `<div class="line bad">停止原因：${escapeHtml(s.lastError)}</div>` : "";
+  $("#hvLog").innerHTML = (err + lines) || '<span class="muted">未开始。</span>';
+  $("#hvStart").disabled = s.running;
+  $("#hvStop").disabled = !s.running;
+  hvLockInputs(s.running);
+  // 跑轮次里评不出的待评分项，也把原因挂到归档列表那行后面（file 里带日期\文件夹名）
+  for (const r of (s.results || [])) {
+    if (r.score === "待评分" && r.scoreError && r.file) {
+      const m = String(r.file).split("\\");
+      const folder = m.length >= 2 ? m[m.length - 2] : "";
+      const date = m.length >= 3 ? m[m.length - 3] : "";
+      if (folder && date) PEL_SCORE_ERRORS.set(date + "|" + folder, r.scoreError);
+    }
+  }
+  if (s.running && !hvTimer) hvTimer = setInterval(hvPoll, 1500);
+  if (!s.running && hvTimer) { clearInterval(hvTimer); hvTimer = null; loadStats(); render(); }
+  return s;
+}
+async function hvPoll() { try { await hvStatus(); } catch { /* keep polling */ } }
+async function hvStart() {
+  const scoreMode = (document.querySelector('input[name="hvScoreMode"]:checked') || {}).value || "none";
+  const payload = {
+    times: Number($("#hvTimes").value || 5),
+    infinite: $("#hvInfinite").checked,
+    intervalSec: Number($("#hvInterval").value || 30),
+    scoreMode,
+    score: scoreMode !== "none",
+  };
+  $("#hvStart").disabled = true;
+  try {
+    const r = await keyPost("/api/pelican/start", payload);
+    if (r && r.error) {
+      toast("启动失败：" + hvErrText(r.error), true); $("#hvStart").disabled = false; return;
+    }
+    toast("已开始鹈鹕自动测试：" + (payload.infinite ? "无限次" : payload.times + " 次") + (payload.scoreMode === "motion" ? "，静动评分" : payload.scoreMode === "still" ? "，静帧评分" : "，不评分"));
+    await hvStatus();
+  } catch (e) { toast("启动失败：" + e.message, true); $("#hvStart").disabled = false; }
+}
+async function hvStop() {
+  $("#hvStop").disabled = true;
+  try {
+    await keyPost("/api/pelican/stop");
+    toast("已请求停止，当前一次结束后停止");
+  } catch (e) { toast("停止失败：" + e.message, true); }
+  await hvStatus();
+}
+
+/* ── 按分数归档（跟主页按模型分类、多选、归档所选同一个做法）── */
+async function hvArchiveList() { /* 归档已移到上方鹈鹕归档列表(pelList 直接拉 archive-list)；这里只保活 key，不碰已删的 hv-arc 控件 */ try { await hvEnsureKey(); } catch {} }
+
+/* ── 指纹抽取（原版指纹版逻辑，控件改 fp- 前缀，与鹈鹕的 hv- 不冲突）── */
+let fpTimer = null;
+$("#fpUntilTarget").addEventListener("change",()=>{
+ const enabled=$("#fpUntilTarget").checked;$("#fpCount").disabled=enabled;
+ $("#fpModeHint").textContent=enabled?"持续模式：次数设置不生效；按下方“任意/全部目标”条件停止，也可手动停止。报错或验证未完成会停止，避免丢失现场。":"按次数模式：达到设定次数，或提前命中目标时停止。";
+});
+async function fpStatus() {
   if (!BRIDGE_KEY) {
     try { const st = await api("/api/status"); BRIDGE_KEY = st.apiKey || BRIDGE_KEY; } catch { /* 稍后重试 */ }
   }
   const s = await mcpApi("/api/harvest/status");
-  $("#harvestPill").innerHTML = s.running
+  $("#fpPill").innerHTML = s.running
     ? `<span class="pill">连抽中 ${s.done}/${s.untilTarget ? "∞" : s.total}</span>`
     : s.done ? `<span class="pill grey">成功 ${s.ok} / 共 ${s.done}</span>` : "";
-  $("#hvBar").style.width = (s.total ? Math.round((s.done / s.total) * 100) : s.running && s.untilTarget ? 15 : 0) + "%";
-  $("#hvSummary").textContent = s.running
+  $("#fpBar").style.width = (s.total ? Math.round((s.done / s.total) * 100) : s.running && s.untilTarget ? 15 : 0) + "%";
+  $("#fpSummary").textContent = s.running
     ? `进行中 ${s.done}/${s.untilTarget ? "∞ · 等待命中目标" : s.total} · ${s.current?.phase || "处理中"}`
     : s.targetHit ? `已匹配目标 ${(s.matchedTargets||[s.targetModel]).join("、")}，连抽已停止（指纹推测）` : s.done ? `已结束 · 归档 ${s.ok} · 失败 ${s.failed} · 共 ${s.done}` : "未开始";
   const lines = (s.rounds || []).slice().reverse().map((r) => {
@@ -1122,52 +1375,313 @@ async function hvStatus() {
         : `✗ ${escapeHtml(r.error || "失败")}${tail}`) + `</div>`;
   }).join("");
   const err = s.lastError && !s.running ? `<div class="line bad">中止原因：${escapeHtml(s.lastError)}</div>` : "";
-  $("#hvLog").innerHTML = (err + lines) || '<span class="muted">未开始。</span>';
-  $("#hvStart").disabled = s.running;
-  $("#hvStop").disabled = !s.running;
-  if (s.running && !hvTimer) hvTimer = setInterval(hvPoll, 1500);
-  if (!s.running && hvTimer) { clearInterval(hvTimer); hvTimer = null; loadStats(); render(); }
+  $("#fpLog").innerHTML = (err + lines) || '<span class="muted">未开始。</span>';
+  $("#fpStart").disabled = s.running;
+  $("#fpStop").disabled = !s.running;
+  if (s.running && !fpTimer) fpTimer = setInterval(fpPoll, 1500);
+  if (!s.running && fpTimer) { clearInterval(fpTimer); fpTimer = null; loadStats(); render(); }
   return s;
 }
-async function hvPoll() { try { await hvStatus(); } catch { /* keep polling */ } }
-async function hvStart() {
+async function fpPoll() { try { await fpStatus(); } catch { /* keep polling */ } }
+async function fpStart() {
   const payload = {
-    count: Number($("#hvCount").value || 0),
-    untilTarget: $("#hvUntilTarget").checked,
-    fingerprintRounds: Number($("#hvRounds").value),
+    count: Number($("#fpCount").value || 0),
+    untilTarget: $("#fpUntilTarget").checked,
+    fingerprintRounds: Number($("#fpRounds").value),
     targetModel: "",
-    targetModels: Array.from($("#hvTargets").selectedOptions,o=>o.value),
-    targetMode: $("#hvTargetMode").value,
-    renameMatched: $("#hvRename").checked,
-    intervalMs: Number($("#hvInterval").value || 0),
+    targetModels: Array.from($("#fpTargets").selectedOptions,o=>o.value),
+    targetMode: $("#fpTargetMode").value,
+    renameMatched: $("#fpRename").checked,
+    intervalMs: Number($("#fpInterval").value || 0),
   };
-  $("#hvStart").disabled = true;
+  $("#fpStart").disabled = true;
   try {
     const r = await keyPost("/api/harvest/start", payload);
     if (r && r.error) {
       const msg = r.error.code === "busy"
         ? "官网会话被本地 API 占用（有一轮对话未结束或残留）。等几秒重试；反复出现就重启一次工作台即可清除，抽卡记录不会丢。"
         : "启动失败：" + r.error.message;
-      toast(msg, true); $("#hvStart").disabled = false; return;
+      toast(msg, true); $("#fpStart").disabled = false; return;
     }
     toast(payload.untilTarget ? "已开始持续抽取，命中目标后停止" : "已开始连抽 " + payload.count + " 次");
-    await hvStatus();
-  } catch (e) { toast("启动失败：" + e.message, true); $("#hvStart").disabled = false; }
+    await fpStatus();
+  } catch (e) { toast("启动失败：" + e.message, true); $("#fpStart").disabled = false; }
 }
-async function hvStop() {
-  $("#hvStop").disabled = true;
+async function fpStop() {
+  $("#fpStop").disabled = true;
   try {
     await keyPost("/api/harvest/stop");
     toast("已请求停止，当前一轮结束后停止");
   } catch (e) { toast("停止失败：" + e.message, true); }
-  await hvStatus();
+  await fpStatus();
+}
+$("#fpStart").addEventListener("click", fpStart);
+$("#fpStop").addEventListener("click", fpStop);
+async function loadFpBankInfo() {
+  try {
+    const s = await mcpApi('/api/fingerprint/status');
+    const sel = $("#fpTargets");
+    const account = s.accountEmail || 'default'; const keepKey = 'hvTargets_' + account; const keep = new Set(JSON.parse(localStorage.getItem(keepKey) || '[]')); sel.onchange = () => localStorage.setItem(keepKey, JSON.stringify(Array.from(sel.selectedOptions, o => o.value)));
+    sel.innerHTML = "";
+    MODEL_NAMES = s.modelNames || {};
+    for (const id of [...(s.modelIds || [])].sort((a, b) => modelName(a).localeCompare(modelName(b)))) {
+      const choice = document.createElement("option");
+      choice.value = id; choice.textContent = modelName(id);
+      if (keep.has(id)) choice.selected = true;
+      sel.append(choice);
+    }
+    const empty = sel.options.length === 0;
+    sel.style.display = empty ? "none" : "";
+    $("#fpTargetsEmpty").style.display = empty ? "" : "none";
+    const up = s.upstream || {};
+    const when = String(s.builtAt || "").replace("T", " ").slice(0, 16);
+    const warn = up.ready ? "" : "（上游库未就绪，正用内置 5.7.6 兜底）";
+    $("#fpBankInfo").textContent = `参考库：${s.source || "?"} · ${s.modelIds?.length || 0} 个模型 · 构建于 ${when || "未知"} · 当前账号：${account} · 本账号已选：${keep.size} 个 ${warn}`;
+  } catch { $("#fpBankInfo").textContent = "参考库：状态读取失败"; $("#fpTargets").style.display = "none"; $("#fpTargetsEmpty").style.display = ""; }
+}
+$("#fpBankUpdate").addEventListener("click", async () => {
+  const btn = $("#fpBankUpdate");
+  btn.disabled = true; const old = btn.textContent;
+  btn.textContent = "更新中（下载约 17MB，请稍等）…";
+  try {
+    const r = await keyPost("/api/fingerprint/update-bank");
+    if (r && r.error) toast("更新失败：" + r.error.message, true);
+    else if (r && r.ready) { toast(`参考库已更新：${String(r.builtAt || "").slice(0, 16)} · ${(r.modelIds || []).length} 个模型`); await loadFpBankInfo(); }
+    else toast("更新结果异常，请看后端日志", true);
+  } catch (e) { toast("更新失败：" + e.message, true); }
+  finally { btn.disabled = false; btn.textContent = old; }
+});
+let lastFpBankAccount = null;
+setInterval(async () => {
+  try {
+    const s = await mcpApi('/api/fingerprint/status');
+    const acc = s.accountEmail || 'default';
+    if (lastFpBankAccount === null) { lastFpBankAccount = acc; return; }
+    if (acc !== lastFpBankAccount) { lastFpBankAccount = acc; await loadFpBankInfo(); }
+  } catch {}
+}, 5000);
+
+/* ── 鹈鹕对话 · 按分数分类（照搬主页模型归档页：统计卡 / 搜索 / 排序 / 分组卡 / 打开+归档）── */
+let PEL_SELECTED = new Set();
+let PEL_SCORE_ERRORS = new Map(); // key: date|name -> 最近一次评分失败原因（本页有效；永久记录在 desktop-shell.log）
+function pelFindItem(date, name) { for (const g of pelGroups()) { const f = g.items.find((x) => x.name === name && (!date || x.date === date)); if (f) return f; } return null; }
+function pelArchiveDest(item) { if (!item) return ""; return item.unscored ? ((item.date || "") + "\\未评分\\" + item.name) : ((item.date || "") + "\\" + item.tier + "\\" + (item.normalized || item.name)); }
+let PEL_DATA = null;
+let PEL_QUERY = "";
+let PEL_SORT = "count";
+const PEL_TIERS = ["优", "良", "中", "差"];
+function pelKey(item) { return (item.date || "") + "|" + (item.tier || "未评分") + "|" + item.name; }
+function pelIndex(item) { const m = /R1-(\d+)/.exec(item.name || ""); return m ? m[1] : "?"; }
+function pelTitle(item) { return "[鹈鹕 " + item.score + (item.mode === "still" ? "静" : "") + "] R1-" + pelIndex(item); }
+function pelTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function pelItemCard(item, date) {
+  const key = pelKey(item);
+  const files = [item.hasFirst ? "首帧 ✓" : "", item.hasStrip ? "帧拼图 ✓" : "", item.hasHtml ? "动画 ✓" : ""].filter(Boolean).join(" · ") || "无文件";
+  return `
+    <article class="card">
+      <div class="sc-head">
+        <input type="checkbox" class="pick pel-pick" data-pel="${escapeHtml(key)}" ${PEL_SELECTED.has(key) ? "checked" : ""} aria-label="选择" />
+        <span class="name">${escapeHtml(item.name)}</span>
+        <span class="badge${item.unscored ? " warn" : ""}">${item.unscored ? "未评分" : escapeHtml(String(item.score)) + "分"}</span>
+        <span class="badge">${escapeHtml(item.tier)}档</span>
+        ${item.unscored ? "" : `<span class="badge dim">${item.mode === "still" ? "静帧" : "动图"}</span>`}
+        ${item.archived ? '<span class="badge">已归档</span>' : ""}
+      </div>
+      <div class="meta">抽到 ${escapeHtml(item.date || "")} · 采集 ${escapeHtml(pelTime(item.collectedAt))} · ${escapeHtml(files)}${item.unscored && PEL_SCORE_ERRORS.get((item.date || "") + "|" + item.name) ? " · 评分失败：" + escapeHtml(PEL_SCORE_ERRORS.get((item.date || "") + "|" + item.name)) : ""}</div>
+      <div class="uuid">${escapeHtml("选妃资料\\鹈鹕\\" + (item.date || date) + "\\" + (item.archived ? item.tier + "\\" : "") + item.name)}</div>
+      <div class="sc-actions">
+        <button class="btn-ghost btn-sm pel-open-btn" data-date="${escapeHtml(item.date || "")}" data-name="${escapeHtml(item.name)}">打开</button>
+        ${item.unscored && item.hasFirst ? `<button class="btn-ghost btn-sm pel-score-btn" data-date="${escapeHtml(item.date || "")}" data-name="${escapeHtml(item.name)}">评分</button>` : ""}
+        <button class="btn-ghost btn-sm pel-archive-btn" data-date="${escapeHtml(item.date || "")}" data-name="${escapeHtml(item.name)}" ${item.archived ? "disabled" : ""}>${item.archived ? "已归档" : "归档"}</button>
+      </div>
+      <div class="sc-url">Arena 对话名：<b>${escapeHtml(pelTitle(item))}</b>（在右侧 Arena 里按这个名字找；<b>勿在你自己浏览器打开</b>）</div>
+    </article>`;
+}
+function pelPoolCard(tier, items, unresolved) {
+  const open = items.filter((x) => !x.archived).length;
+  const dates = [...new Set(items.map((x) => x.date).filter(Boolean))];
+  const scores = items.map((x) => x.score).filter((n) => Number.isFinite(n));
+  const last = items.map((x) => x.collectedAt || "").sort().reverse()[0] || "";
+  const badges = unresolved
+    ? `<span class="badge warn">待归档 ${items.length}</span>`
+    : `<span class="badge">可用 ${open}</span>` + (scores.length ? `<span class="badge dim">最高 ${Math.max(...scores)} · 最低 ${Math.min(...scores)}</span>` : "") + (last ? `<span class="badge dim">采集 ${escapeHtml(pelTime(last))}</span>` : "");
+  return `
+    <div class="pool" data-tier="${escapeHtml(tier)}">
+      <div class="pool-head">
+        <span class="pool-caret">${ICON.chev}</span>
+        <input type="checkbox" class="pick pick-group pel-pick-group" data-tier="${escapeHtml(tier)}" aria-label="整组选择" title="勾上=选中该档位所有对话" />
+        <span class="pool-name ${unresolved ? "unresolved" : ""}">${escapeHtml(tier)}${unresolved ? "" : "档"}</span>
+        ${unresolved ? '<span class="badge warn">待归档</span>' : ""}
+        <span class="pool-metrics">${badges}</span>
+      </div>
+      <div class="pool-body">
+        <div class="pool-meta">${unresolved ? "没分数的对话：点卡片上的「评分」只用首帧打静帧分（满分 80），有分后自动进对应档位；也可以直接点「归档」挪进同天文件夹下的 未评分 子文件夹" : "账号：当前账号 · " + items.length + " 条对话" + (dates.length ? " · 抽到 " + dates.join("、") : "")}</div>
+        <div class="pool-sub">${items.map((x) => pelItemCard(x, x.date)).join("")}</div>
+      </div>
+    </div>`;
+}
+function pelGroups() {
+  if (!PEL_DATA) return [];
+  const groups = (PEL_DATA.groups || {});
+  const out = PEL_TIERS.map((t) => ({ tier: t, items: [...(groups[t] || [])] }));
+  const skipped = (PEL_DATA.skipped || []).map((s) => ({ name: s.name, score: null, mode: "", tier: "未评分", date: s.date || "", archived: false, collectedAt: s.collectedAt || "", hasFirst: !!s.hasFirst, hasStrip: !!s.hasStrip, hasHtml: !!s.hasHtml, unscored: true }));
+  if (skipped.length) out.push({ tier: "未评分", items: skipped, unresolved: true });
+  return out;
+}
+function pelRender() {
+  const box = $("#pelSessions");
+  const counter = $("#pelCount");
+  if (!PEL_DATA) { box.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>'; return; }
+  const needle = PEL_QUERY.trim().toLowerCase();
+  let groups = pelGroups().map((g) => ({
+    ...g,
+    items: g.items.filter((x) => !needle || String(x.score).includes(needle) || x.name.toLowerCase().includes(needle) || x.tier.includes(needle)),
+  })).filter((g) => g.items.length);
+  const skippedN = (PEL_DATA.skipped || []).length;
+  const total = (PEL_DATA.total || 0) + skippedN;
+  const avail = Object.values(PEL_DATA.groups || {}).flat().filter((x) => !x.archived).length + skippedN;
+  if (counter) counter.textContent = `${PEL_TIERS.filter((t) => (PEL_DATA.groups || {})[t]?.length).length} 个分数档 · ${total} 条对话` + (needle ? ` · 筛出 ${groups.reduce((n, g) => n + g.items.length, 0)}` : "");
+  if (PEL_SORT === "score") groups = groups.sort((a, b) => Math.max(0, ...b.items.map((x) => x.score || 0)) - Math.max(0, ...a.items.map((x) => x.score || 0)));
+  else if (PEL_SORT === "collected") groups = groups.sort((a, b) => String(b.items.map((x) => x.collectedAt || "").sort().reverse()[0] || "").localeCompare(String(a.items.map((x) => x.collectedAt || "").sort().reverse()[0] || "")));
+  else if (PEL_SORT === "tier") groups = groups.sort((a, b) => PEL_TIERS.indexOf(a.tier) - PEL_TIERS.indexOf(b.tier));
+  else groups = groups.sort((a, b) => b.items.filter((x) => !x.archived).length - a.items.filter((x) => !x.archived).length || PEL_TIERS.indexOf(a.tier) - PEL_TIERS.indexOf(b.tier));
+  if (!groups.length) {
+    box.innerHTML = emptyState(ICON.inbox, PEL_DATA.exists ? "没有匹配的鹈鹕对话" : "还没有鹈鹕对话", PEL_DATA.exists ? `没有分数 / 序号 / 会话匹配「${escapeHtml(PEL_QUERY)}」` : `选妃资料\\鹈鹕\\ 下还没有文件夹`);
+  } else {
+    box.innerHTML = groups.map((g) => pelPoolCard(g.tier, g.items, !!g.unresolved)).join("");
+  }
+  $("#pelStatsBar").innerHTML = chip("可用对话数", avail) + chip("分数档数", PEL_TIERS.filter((t) => (PEL_DATA.groups || {})[t]?.length).length) + chip("归档目录", "", PEL_DATA.dayDir || "选妃资料\鹈鹕");
+  // 绑定：分组折叠 + 勾选 + 打开/归档（每条就打开、归档两个按钮）
+  box.querySelectorAll(".pool-head").forEach((h) => h.addEventListener("click", (e) => { if (e.target.closest("input")) return; h.parentElement.classList.toggle("caret-open"); }));
+  box.querySelectorAll(".pel-pick").forEach((cb) => cb.addEventListener("change", () => { const k = cb.dataset.pel; if (cb.checked) PEL_SELECTED.add(k); else PEL_SELECTED.delete(k); pelSelCount(); }));
+  box.querySelectorAll(".pel-pick-group").forEach((cb) => cb.addEventListener("change", () => {
+    const tier = cb.dataset.tier;
+    pelGroups().filter((g) => g.tier === tier).forEach((g) => g.items.forEach((x) => { const k = pelKey(x); if (cb.checked) PEL_SELECTED.add(k); else PEL_SELECTED.delete(k); }));
+    pelRender(); pelSelCount();
+  }));
+  box.querySelectorAll(".pel-open-btn").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      const r = await keyPost("/api/pelican/open-folder", { date: b.dataset.date || "", name: b.dataset.name });
+      if (r && r.error) toast("打开失败：" + hvErrText(r.error), true);
+    } catch (e) { toast("打开失败：" + e.message, true); }
+    finally { b.disabled = false; }
+  }));
+  box.querySelectorAll(".pel-score-btn").forEach((b) => b.addEventListener("click", async () => {
+    // NOTE 2026-11-09: native confirm() removed for pelican actions -- leaked Playwright CDP sessions in server.mjs auto-dismiss the native dialog (Page.handleJavaScriptDialog errors in desktop-backend.log), so confirm() always returned false and the action never ran. Toast below reports the result; archive is reversible by moving the folder back.
+    b.disabled = true;
+    const old = b.textContent; b.textContent = "评分中…";
+    try {
+      const r = await keyPost("/api/pelican/score-one", { date: b.dataset.date || "", name: b.dataset.name });
+      const errKey = (b.dataset.date || "") + "|" + b.dataset.name;
+      if (r && r.error) { const msg = hvErrText(r.error); PEL_SCORE_ERRORS.set(errKey, msg); toast("评分失败：" + msg, true); }
+      else if (r && r.ok === false) { const msg = hvErrText(r.error || "评委没出分"); PEL_SCORE_ERRORS.set(errKey, msg); toast("评分失败：" + msg, true); }
+      else { PEL_SCORE_ERRORS.delete(errKey); toast("已评分：" + r.score + "分 · " + r.tier + "档，已改名 " + r.name); }
+      await pelList(); await loadPelStats();
+    } catch (e) { PEL_SCORE_ERRORS.set((b.dataset.date || "") + "|" + b.dataset.name, e.message); toast("评分失败：" + e.message, true); }
+    finally { b.disabled = false; b.textContent = old; }
+  }));
+  box.querySelectorAll(".pel-archive-btn").forEach((b) => b.addEventListener("click", async () => {
+    const _it = pelFindItem(b.dataset.date || "", b.dataset.name);
+    // NOTE 2026-11-09: native confirm() removed for pelican actions -- leaked Playwright CDP sessions in server.mjs auto-dismiss the native dialog (Page.handleJavaScriptDialog errors in desktop-backend.log), so confirm() always returned false and the action never ran. Toast below reports the result; archive is reversible by moving the folder back.
+    b.disabled = true;
+    try {
+      const r = await keyPost("/api/pelican/archive-one", { date: b.dataset.date || "", name: b.dataset.name });
+      if (r && r.error) toast("归档失败：" + hvErrText(r.error), true);
+      else { toast(r.already ? "目标里已经有了，没动" : "已归档进 " + r.to); PEL_SELECTED.delete(pelKey({ tier: r.tier, name: b.dataset.name, date: r.date || b.dataset.date })); await pelList(); await hvArchiveList(); }
+    } catch (e) { toast("归档失败：" + e.message, true); }
+    finally { b.disabled = false; }
+  }));
+  pelSelCount();
+}
+function pelSelCount() {
+  const el = $("#pelSelCount");
+  if (el) el.textContent = "已选 " + PEL_SELECTED.size + " 个";
+}
+/* ── 鹈鹕统计卡：不依赖归档列表，服务端直接扫磁盘 ──
+   之前统计卡只在 pelRender() 里填，而 pelRender() 只有 archive-list 成功才跑；
+   archive-list 一失败（比如现在没有 20147 工作区页面），卡就一直是空的。
+   这条路由不走桥接，切页 / 打开时直接拉一次就有数。 */
+async function loadPelStats() {
+  await hvEnsureKey();
+  try {
+    // 注意：/api/pelican/* 在鉴权门后面，必须带 key（mcpApi），裸 api() 会拿 401
+    const s = await mcpApi("/api/pelican/stats");
+    if (s && !s.error) {
+      $("#pelStatsBar").innerHTML = chip("可用对话数", s.avail ?? 0) + chip("分数档数", s.tiers ?? 0) + chip("归档目录", "", s.dayDir || "选妃资料\\鹈鹕");
+      return;
+    }
+  } catch {}
+  // 拉不到数也照样摆三个卡：现在就是 0，没跑过，不能整个板块不见
+  $("#pelStatsBar").innerHTML = chip("可用对话数", 0) + chip("分数档数", 0) + chip("归档目录", "", "选妃资料\\鹈鹕");
+}
+async function pelList() {
+  await hvEnsureKey();
+  try {
+    const r = await mcpApi("/api/pelican/archive-list") // 不按日期：全部日期按档合并;
+    if (r && r.error) { $("#pelSessions").innerHTML = emptyState(ICON.bolt, "读取失败", "无法连接本地 bridge：" + escapeHtml(hvErrText(r.error))); return; }
+    PEL_DATA = r;
+    pelRender();
+  } catch (e) {
+    $("#pelSessions").innerHTML = emptyState(ICON.bolt, "读取失败", "无法连接本地 bridge：" + escapeHtml(e.message));
+  }
+}
+async function pelArchiveSelected() {
+  const keys = [...PEL_SELECTED];
+  if (!keys.length) { toast("先勾要归档的对话", true); return; }
+  // 确认框说清楚归到哪里：按目标文件夹分组统计（有分的进同天\档位，没分的进同天\未评分）
+  const destCount = {};
+  for (const k of keys) {
+    const parts = k.split("|");
+    const it = pelFindItem(parts[0] || "", parts.slice(2).join("|"));
+    const dest = it ? ((it.date || "") + "\\" + (it.unscored ? "未评分" : it.tier)) : "对应档位";
+    destCount[dest] = (destCount[dest] || 0) + 1;
+  }
+  const destLines = Object.entries(destCount).map(([d, n]) => "· " + d + "：" + n + " 条").join("\n");
+    // NOTE 2026-11-09: native confirm() removed for pelican actions -- leaked Playwright CDP sessions in server.mjs auto-dismiss the native dialog (Page.handleJavaScriptDialog errors in desktop-backend.log), so confirm() always returned false and the action never ran. Toast below reports the result; archive is reversible by moving the folder back.
+  let done = 0, already = 0;
+  const failed = [];
+  for (const k of keys) {
+    const parts = k.split("|");
+    const date = parts[0] || "";
+    const name = parts.slice(2).join("|");
+    try {
+      const r = await keyPost("/api/pelican/archive-one", { date, name });
+      if (r && r.error) failed.push(name + "：" + hvErrText(r.error));
+      else if (r && r.ok === false) failed.push(name + "：" + hvErrText(r.error || "归档失败"));
+      else { if (r.already) already++; else done++; PEL_SELECTED.delete(k); }
+    } catch (e) { failed.push(name + "：" + e.message); }
+  }
+  toast("已归档 " + done + " 条" + (already ? "，" + already + " 条目标里已经有了没动" : "") + (failed.length ? "，失败 " + failed.length + " 条：" + failed[0] + (failed.length > 1 ? " 等" : "") : ""), failed.length > 0);
+  await pelList(); await hvArchiveList();
+}
+
+// 归档未评分：把全部未评分对话挪进各日期文件夹下的 未评分 子文件夹
+async function pelArchiveUnscored() {
+  const skipped = (PEL_DATA && PEL_DATA.skipped) || [];
+  if (!skipped.length) { toast("没有未评分的对话", true); return; }
+  const dates = [...new Set(skipped.map((s) => s.date).filter(Boolean))];
+    // NOTE 2026-11-09: native confirm() removed for pelican actions -- leaked Playwright CDP sessions in server.mjs auto-dismiss the native dialog (Page.handleJavaScriptDialog errors in desktop-backend.log), so confirm() always returned false and the action never ran. Toast below reports the result; archive is reversible by moving the folder back.
+  try {
+    const r = await keyPost("/api/pelican/archive-unscored", {});
+    if (r && r.error) { toast("归档未评分失败：" + hvErrText(r.error), true); return; }
+    toast("归档未评分：已挪 " + (r.moved || []).length + " 条" + ((r.already || []).length ? "，" + r.already.length + " 条目标里已经有了没动" : ""));
+  } catch (e) { toast("归档未评分失败：" + e.message, true); return; }
+  await pelList(); await hvArchiveList();
 }
 
 /* ── 页面切换 ─────────────────────────────────────────────────────────── */
 function switchPage(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.page === name));
   document.querySelectorAll(".page").forEach((p) => p.classList.toggle("hidden", p.id !== "page-" + name));
-  if (name === "harvest") hvStatus().catch(() => undefined); // 每次切回连抽采集都重新同步服务端真实状态
+  if (name === "harvest") { loadPelStats().catch(() => undefined); hvStatus().then(() => hvArchiveList()).then(() => pelList()).catch(() => undefined); } // 先同步状态（顺带拿到 key），再拉归档列表和鹈鹕对话列表
+  if (name === "archive") { fpStatus().catch(() => undefined); loadFpBankInfo().catch(() => undefined); }
 }
 document.querySelectorAll(".tab").forEach((t) => {
   t.addEventListener("click", () => switchPage(t.dataset.page));
@@ -1206,55 +1720,71 @@ async function purgeSessions(sids) {
   toast(`归档完成：成功 ${r.archived}/${sids.length}` + (failed.length ? `，${failed.length} 个未完成（${(failed[0].error || "?").slice(0, 80)}${failed.length > 1 ? " 等" : ""}）` : ""), failed.length > 0);
   await refreshArchiveView();
 }
+document.querySelectorAll('input[name="hvScoreMode"]').forEach((r) => r.addEventListener("change", () => {
+  document.querySelectorAll(".score-card").forEach((c) => c.classList.toggle("on", !!c.querySelector("input:checked")));
+  hvSaveSettings();
+}));
+function hvSyncInfinite(){ const inf=$("#hvInfinite").checked; const t=$("#hvTimes"); t.disabled=inf; const l=t.closest("label"); if(l) l.classList.toggle("disabled", inf); }
+
+// 次数/间隔/无限次/评分档：存 localStorage，刷新/切页不丢；跑起来锁住，停下放开
+const PEL_HV_SETTINGS_KEY = "pelicanHvSettings";
+function hvSaveSettings() {
+  try {
+    const scoreMode = (document.querySelector('input[name="hvScoreMode"]:checked') || {}).value || "none";
+    localStorage.setItem(PEL_HV_SETTINGS_KEY, JSON.stringify({ times: $("#hvTimes").value, intervalSec: $("#hvInterval").value, infinite: $("#hvInfinite").checked, scoreMode }));
+  } catch {}
+}
+function hvLoadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(PEL_HV_SETTINGS_KEY) || "null");
+    if (!s) return;
+    if (s.times != null && s.times !== "") $("#hvTimes").value = s.times;
+    if (s.intervalSec != null && s.intervalSec !== "") $("#hvInterval").value = s.intervalSec;
+    if (s.infinite != null) $("#hvInfinite").checked = !!s.infinite;
+    if (s.scoreMode) { const r = document.querySelector('input[name="hvScoreMode"][value="' + s.scoreMode + '"]'); if (r) r.checked = true; }
+  } catch {}
+}
+function hvLockInputs(running) {
+  if (running) {
+    $("#hvTimes").disabled = true; $("#hvInterval").disabled = true; $("#hvInfinite").disabled = true;
+    document.querySelectorAll('input[name="hvScoreMode"]').forEach((r) => { r.disabled = true; });
+  } else {
+    $("#hvInterval").disabled = false; $("#hvInfinite").disabled = false;
+    document.querySelectorAll('input[name="hvScoreMode"]').forEach((r) => { r.disabled = false; });
+    hvSyncInfinite();
+  }
+}
+$("#hvInfinite").addEventListener("change", () => { hvSyncInfinite(); hvSaveSettings(); });
+$("#hvTimes").addEventListener("change", hvSaveSettings);
+$("#hvInterval").addEventListener("change", hvSaveSettings);
+hvSyncInfinite();
+hvLoadSettings(); hvSyncInfinite();
+document.querySelectorAll(".score-card").forEach((c) => c.classList.toggle("on", !!c.querySelector("input:checked")));
 $("#hvStart").addEventListener("click", hvStart);
 $("#hvStop").addEventListener("click", hvStop);
+$("#pelRefresh").addEventListener("click", pelList);
+$("#pelRefBtn").addEventListener("click", async () => {
+  const m = $("#pelRefMsg"); if (m) m.textContent = "";
+  try {
+    if (!window.workbench?.invoke) throw new Error("工作台桥不可用，请重启工作台后再试");
+    await window.workbench.invoke("pelican-ref");
+  } catch (e) { const msg = String((e && e.message) || e); if (m) m.textContent = "打开失败：" + msg; }
+});
+$("#pelSelAll").addEventListener("click", () => { pelGroups().forEach((g) => g.items.forEach((x) => { if (!x.archived) PEL_SELECTED.add(pelKey(x)); })); pelRender(); pelSelCount(); });
+$("#pelSelNone").addEventListener("click", () => { PEL_SELECTED.clear(); pelRender(); pelSelCount(); });
+$("#pelSelDel").addEventListener("click", pelArchiveSelected);
+$("#pelSelUnscored").addEventListener("click", pelArchiveUnscored);
+$("#pelSearch").addEventListener("input", () => { PEL_QUERY = $("#pelSearch").value; pelRender(); });
+$("#pelSort").addEventListener("change", () => { PEL_SORT = $("#pelSort").value; pelRender(); });
 $("#selAll").addEventListener("click", () => selectAll(true));
 $("#selNone").addEventListener("click", () => selectAll(false));
 $("#selDel").addEventListener("click", () => archiveSessions([...SELECTED], { skipConfirm: true, button: $("#selDel") }));
 loadStats();
-async function loadBankInfo() {
-  try {
-    const s = await mcpApi('/api/fingerprint/status');
-    const sel = $("#hvTargets");
-    const account = s.accountEmail || 'default'; const keepKey = 'hvTargets_' + account; const keep = new Set(JSON.parse(localStorage.getItem(keepKey) || '[]')); sel.onchange = () => localStorage.setItem(keepKey, JSON.stringify(Array.from(sel.selectedOptions, o => o.value)));
-    sel.innerHTML = "";
-    MODEL_NAMES = s.modelNames || {};
-    // 按显示名字母排序——上游顺序是入库时间序，5.5 这类新模型会被排在组尾，肉眼难找。
-    for (const id of [...(s.modelIds || [])].sort((a, b) => modelName(a).localeCompare(modelName(b)))) {
-      const choice = document.createElement("option");
-      choice.value = id; choice.textContent = modelName(id);
-      if (keep.has(id)) choice.selected = true;
-      sel.append(choice);
-    }
-    const up = s.upstream || {};
-    const when = String(s.builtAt || "").replace("T", " ").slice(0, 16);
-    const warn = up.ready ? "" : "（上游库未就绪，正用内置 5.7.6 兜底）";
-    $("#bankInfo").textContent = `参考库：${s.source || "?"} · ${s.modelIds?.length || 0} 个模型 · 构建于 ${when || "未知"} · 当前账号：${account} · 本账号已选：${keep.size} 个 ${warn}`;
-  } catch { $("#bankInfo").textContent = "参考库：状态读取失败"; }
-}
-$("#bankUpdate").addEventListener("click", async () => {
-  const btn = $("#bankUpdate");
-  btn.disabled = true; const old = btn.textContent;
-  btn.textContent = "更新中（下载约 17MB，请稍等）…";
-  try {
-    const r = await keyPost("/api/fingerprint/update-bank");
-    if (r && r.error) toast("更新失败：" + r.error.message, true);
-    else if (r && r.ready) { toast(`参考库已更新：${String(r.builtAt || "").slice(0, 16)} · ${(r.modelIds || []).length} 个模型`); await loadBankInfo(); }
-    else toast("更新结果异常，请看后端日志", true);
-  } catch (e) { toast("更新失败：" + e.message, true); }
-  finally { btn.disabled = false; btn.textContent = old; }
-});
-render().then(() => loadBankInfo());
-let lastBankAccount = null;
-setInterval(async () => {
-  try {
-    const s = await mcpApi('/api/fingerprint/status');
-    const acc = s.accountEmail || 'default';
-    if (lastBankAccount === null) { lastBankAccount = acc; return; }
-    if (acc !== lastBankAccount) { lastBankAccount = acc; await loadBankInfo(); }
-  } catch {}
-}, 5000);
+render().then(() => loadFpBankInfo());
 hvStatus().catch(() => undefined);
+fpStatus().catch(() => undefined);
+pelList().catch(() => undefined);
+loadPelStats().catch(() => undefined);
 </script>
 </body>
 </html>
