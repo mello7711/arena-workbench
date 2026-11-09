@@ -1500,7 +1500,8 @@ function pelItemCard(item, date) {
         ${item.unscored && item.hasFirst ? `<button class="btn-ghost btn-sm pel-score-btn" data-date="${escapeHtml(item.date || "")}" data-name="${escapeHtml(item.name)}">评分</button>` : ""}
         <button class="btn-ghost btn-sm pel-archive-btn" data-date="${escapeHtml(item.date || "")}" data-name="${escapeHtml(item.name)}" ${item.archived ? "disabled" : ""}>${item.archived ? "已归档" : "归档"}</button>
       </div>
-      <div class="sc-url">Arena 对话名：<b>${escapeHtml(pelTitle(item))}</b>（在右侧 Arena 里按这个名字找；<b>勿在你自己浏览器打开</b>）</div>
+      <div class="sc-url">Arena 对话名：<b>${escapeHtml(pelTitle(item))}</b></div>
+      ${item.sessionUrl ? `<div class="sc-url">会话链接：<a href="#" class="pel-url-link" data-date="${escapeHtml(item.date || "")}" data-name="${escapeHtml(item.name)}">${escapeHtml(item.sessionUrl)}</a>（点链接或“打开”都在右侧 Arena 跳到这个会话）</div>` : `<div class="sc-url">会话链接：老数据，没存网址，点“打开”会打开本地文件夹</div>`}
     </article>`;
 }
 function pelPoolCard(tier, items, unresolved) {
@@ -1530,7 +1531,7 @@ function pelGroups() {
   if (!PEL_DATA) return [];
   const groups = (PEL_DATA.groups || {});
   const out = PEL_TIERS.map((t) => ({ tier: t, items: [...(groups[t] || [])] }));
-  const skipped = (PEL_DATA.skipped || []).map((s) => ({ name: s.name, score: null, mode: "", tier: "未评分", date: s.date || "", archived: false, collectedAt: s.collectedAt || "", hasFirst: !!s.hasFirst, hasStrip: !!s.hasStrip, hasHtml: !!s.hasHtml, unscored: true }));
+  const skipped = (PEL_DATA.skipped || []).map((s) => ({ name: s.name, score: null, mode: "", tier: "未评分", date: s.date || "", archived: false, collectedAt: s.collectedAt || "", hasFirst: !!s.hasFirst, hasStrip: !!s.hasStrip, hasHtml: !!s.hasHtml, unscored: true, sessionUrl: s.sessionUrl || "" }));
   if (skipped.length) out.push({ tier: "未评分", items: skipped, unresolved: true });
   return out;
 }
@@ -1566,12 +1567,23 @@ function pelRender() {
     pelRender(); pelSelCount();
   }));
   box.querySelectorAll(".pel-open-btn").forEach((b) => b.addEventListener("click", async () => {
+    // 打开 = 照抄指纹的 open-session：直接调桌面 IPC，在右侧 Arena 视图跳到这个会话页；
+    // 老数据没存会话链接时，后端退回打开本地文件夹（r.fallback === "folder"）。
     b.disabled = true;
     try {
-      const r = await keyPost("/api/pelican/open-folder", { date: b.dataset.date || "", name: b.dataset.name });
+      const r = await window.workbench.invoke("pelican-open-session", { date: b.dataset.date || "", name: b.dataset.name });
       if (r && r.error) toast("打开失败：" + hvErrText(r.error), true);
+      else if (r && r.fallback === "folder") toast("这个是老数据，没存会话链接，已打开本地文件夹");
     } catch (e) { toast("打开失败：" + e.message, true); }
     finally { b.disabled = false; }
+  }));
+  box.querySelectorAll(".pel-url-link").forEach((a) => a.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const r = await window.workbench.invoke("pelican-open-session", { date: a.dataset.date || "", name: a.dataset.name });
+      if (r && r.error) toast("打开失败：" + hvErrText(r.error), true);
+      else if (r && r.fallback === "folder") toast("这个是老数据，没存会话链接，已打开本地文件夹");
+    } catch (err) { toast("打开失败：" + err.message, true); }
   }));
   box.querySelectorAll(".pel-score-btn").forEach((b) => b.addEventListener("click", async () => {
     // NOTE 2026-11-09: native confirm() removed for pelican actions -- leaked Playwright CDP sessions in server.mjs auto-dismiss the native dialog (Page.handleJavaScriptDialog errors in desktop-backend.log), so confirm() always returned false and the action never ran. Toast below reports the result; archive is reversible by moving the folder back.
