@@ -1,16 +1,32 @@
 const {contextBridge,ipcRenderer}=require('electron');
-// file:// 本地工作区页：完整 workbench 桥
-if(location.protocol==='file:'){
+
+// file:// 本地工作区页（保留兼容）：完整 workbench 桥
+// http:// 工作区页（20147，由 main.cjs 内置提供服务）：同样给完整桥。
+//   历史原因：面板视图停在 http://127.0.0.1:20140/ 时无法导航到 file://
+//   （Chromium 拒绝 http 页面跳 file 页面），导致「工作区」页签点了没反应。
+//   修复方式：工作区页改走 http://127.0.0.1:20147/，面板只做 http->http 跳转。
+const WORKSPACE_ACTIONS = [
+  'home-open','integration-open','integration-control',
+  'pelican-send','pelican-ref',
+  'pelican-auto-start','pelican-auto-stop','pelican-auto-status',
+  'pelican-archive','pelican-archive-list','pelican-open-folder','pelican-archive-one','pelican-archive-unscored','pelican-score-one',
+  'coldstart-copy','coldstart-send','coldstart-backup-copy','coldstart-backup-send',
+  'relay-list','relay-send','relay-copy',
+  'session-export','session-import',
+  'panel-resize'
+];
+
+function exposeFull(){
   contextBridge.exposeInMainWorld('workbench',{
     invoke:(action,data)=>ipcRenderer.invoke('workbench',action,data),
     onState:fn=>ipcRenderer.on('workbench-state',(_,s)=>fn(s))
   });
-}else if(location.protocol==='http:'){
-  // localhost 管理页需要通过 IPC 驱动右侧内嵌 Arena 页面。
-  // 只开放管理页实际需要的动作，避免把完整桌面权限暴露给 HTTP 内容。
+}
+
+function exposeWorkspaceHttp(){
   contextBridge.exposeInMainWorld('workbench',{
     invoke:(action,data)=>{
-      if(!['open-session','panel-resize'].includes(action))return Promise.reject(new Error('不允许的面板操作'));
+      if(!WORKSPACE_ACTIONS.includes(action))return Promise.reject(new Error('不允许的面板操作'));
       return ipcRenderer.invoke('workbench',action,data);
     }
   });
@@ -18,6 +34,32 @@ if(location.protocol==='file:'){
     resize:delta=>ipcRenderer.invoke('workbench','panel-resize',{delta})
   });
 }
+
+if(location.protocol==='file:'){
+  exposeFull();
+}else if(location.protocol==='http:'){
+  // 20147 是工作区页，需要完整本地能力；20140 管理页原本只开放最小权限。
+  // 20147 死结修复（2026-11-09）：鹈鹕「开始连抽」按钮在 20140 管理页上，执行
+  // 逻辑的 20147 工作区页和它不能同时开，server.mjs 转发时永远找不到 20147。
+  // 所以 20140 页也放行 pelican-auto-*/pelican-archive*，让管理页直接调 IPC，
+  // 其余操作仍只放行 open-session / panel-resize。
+  if(location.port==='20147')exposeWorkspaceHttp();
+  else{
+    const ADMIN_ACTIONS=['open-session','panel-resize','pelican-ref',
+      'pelican-auto-start','pelican-auto-stop','pelican-auto-status',
+      'pelican-archive','pelican-archive-list','pelican-open-folder','pelican-archive-one','pelican-archive-unscored','pelican-score-one'];
+    contextBridge.exposeInMainWorld('workbench',{
+      invoke:(action,data)=>{
+        if(!ADMIN_ACTIONS.includes(action))return Promise.reject(new Error('不允许的面板操作'));
+        return ipcRenderer.invoke('workbench',action,data);
+      }
+    });
+    contextBridge.exposeInMainWorld('panelBridge',{
+      resize:delta=>ipcRenderer.invoke('workbench','panel-resize',{delta})
+    });
+  }
+}
+
 // 右缘拖条：拖拽调节左窗与官网宽度（原生 view 会盖住 shell DOM，只能放在页面内部）
 function injectDivider(){
   if(document.getElementById('__panelDivider'))return;
