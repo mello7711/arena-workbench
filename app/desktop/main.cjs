@@ -367,6 +367,32 @@ case 'pelican-open-folder':{
   const full=item.archived?path.join(dayDir,item.tier,item.normalized):path.join(dayDir,item.name);
   const error=await shell.openPath(full);if(error)throw Error(error);return {ok:true};
 }
+case 'pelican-open-session':{
+  // 鹈鹕“打开”：照抄指纹的 open-session，在右侧 Arena 视图直接跳到这个会话页。
+  // 会话链接存在文件夹里的 会话链接.txt（收图时写）；老数据没有就退回开本地文件夹，不报错。
+  const d=String((data&&data.date)||'').trim();
+  const name=String((data&&data.name)||'').trim();
+  const scan=pelicanArchiveScanAll();
+  const item=pelicanFindItem(scan,name,d||null);
+  if(!item)throw Error('找不到这个对话文件夹：'+name);
+  const dayDir=path.join(scan.dayDir,item.date);
+  const full=item.archived?path.join(dayDir,item.tier,item.normalized):path.join(dayDir,item.name);
+  const url=item.sessionUrl||pelicanReadSessionUrl(full);
+  if(!url){
+    const error=await shell.openPath(full);if(error)throw Error(error);
+    return {ok:true,fallback:'folder'};
+  }
+  if(!arena)throw Error('官网页面尚未就绪');
+  currentView='arena';modal=false;layout();trace('pelican-open-session: '+url);
+  let loadError=null;
+  for(let attempt=1;attempt<=2;attempt+=1){
+    loadError=null;
+    try{await arena.webContents.loadURL(url);break;}
+    catch(e){loadError=e;trace('pelican-open-session load attempt '+attempt+' failed: '+e.message);if(attempt<2)await new Promise(w=>setTimeout(w,900));}
+  }
+  if(loadError)throw Error('打开失败：'+loadError.message+'（右侧页面可能还在加载，请重试一次）');
+  publish();return {ok:true,url};
+}
 case 'pelican-archive-unscored':{
   const scan=pelicanArchiveScanAll();
   if(!scan.exists)throw Error('还没有鹈鹕文件夹：'+scan.dayDir);
@@ -796,6 +822,16 @@ async function pelicanBuildStrip(frameFiles,stripFile){
 // 每个档位里还是分数+序号的文件夹。名字只认分数+序号（R1-3_51静 / R1-1_73），
 // 旧的带档位名（R1-1_51良静 / R1-1_73优）也认，挪过去时顺手把档位从名字里去掉。
 // 没分数的（不评分 / 待评分）归不了档，跳过并上报。tier 只在这里用，不写进名字。
+// 会话链接：收图时把 https://arena.ai/agent/<sid> 写进文件夹里的 会话链接.txt，
+// 扫描时读出来给列表页显示、“打开”跳转用。老文件夹没有这个文件就返回空串。
+function pelicanReadSessionUrl(dir){
+  try{
+    const f=path.join(dir,'会话链接.txt');
+    if(!fs.existsSync(f))return '';
+    const u=fs.readFileSync(f,'utf8').trim().split(/\s+/)[0]||'';
+    return /^https:\/\/arena\.ai\/agent\/[a-f0-9-]{36}(\?.*)?$/i.test(u)?u:'';
+  }catch{return '';}
+}
 function pelicanScanItem(full,name,archived,tierOverride){
   let st; try{st=fs.statSync(full);}catch{return null;}
   if(!st.isDirectory())return null;
@@ -806,7 +842,7 @@ function pelicanScanItem(full,name,archived,tierOverride){
   const tier=tierOverride||pelicanTier(score,mode);
   if(!tier)return null;
   let files=[]; try{files=fs.readdirSync(full);}catch{}
-  return {name,score,mode,tier,archived:!!archived,normalized:'R1-'+m[1]+'_'+score+(mode==='still'?'静':''),collectedAt:new Date(st.mtimeMs).toISOString(),hasFirst:files.includes('首帧.png'),hasStrip:files.includes('帧拼图.png'),hasHtml:files.includes('动画.html')};
+  return {name,score,mode,tier,archived:!!archived,normalized:'R1-'+m[1]+'_'+score+(mode==='still'?'静':''),collectedAt:new Date(st.mtimeMs).toISOString(),hasFirst:files.includes('首帧.png'),hasStrip:files.includes('帧拼图.png'),hasHtml:files.includes('动画.html'),sessionUrl:pelicanReadSessionUrl(full)};
 }
 function pelicanArchiveScan(dateStr){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))throw Error('日期格式不对');
@@ -830,7 +866,7 @@ function pelicanArchiveScan(dateStr){
       continue;
     }
     const item=pelicanScanItem(full,name,false);
-    if(!item){let _f=[];try{_f=fs.readdirSync(full);}catch{} skipped.push({name,reason:'没有分数，归不了档',hasFirst:_f.includes('首帧.png'),hasStrip:_f.includes('帧拼图.png'),hasHtml:_f.includes('动画.html'),collectedAt:new Date(st.mtimeMs).toISOString()});continue;}
+    if(!item){let _f=[];try{_f=fs.readdirSync(full);}catch{} skipped.push({name,reason:'没有分数，归不了档',hasFirst:_f.includes('首帧.png'),hasStrip:_f.includes('帧拼图.png'),hasHtml:_f.includes('动画.html'),collectedAt:new Date(st.mtimeMs).toISOString(),sessionUrl:pelicanReadSessionUrl(full)});continue;}
     groups[item.tier].push(item);
   }
   const total=Object.values(groups).reduce((n,a)=>n+a.length,0);
@@ -914,6 +950,8 @@ async function pelicanAutoRun(total,opts={}){
       // 顺序：存首帧 -> 采 6 帧拼帧拼图（评分开时才采）-> 双图打分 -> 文件夹按分数定名。
       const itemDir0=path.join(outDir,'R1-'+i+'_tmp');
       fs.mkdirSync(itemDir0,{recursive:true});
+      // 会话链接和首帧放一起：以后点“打开”就靠它跳回这个会话；文件夹改名/归档跟着走。
+      try{fs.writeFileSync(path.join(itemDir0,'会话链接.txt'),url+'\n');}catch(e){trace('pelican session url save failed: '+String(e.message||e));}
       const tmpFile=path.join(itemDir0,'首帧.png');
       let saved=null;
       try{saved=await pelicanCaptureVisual(v,tmpFile);}catch(e){try{fs.rmSync(itemDir0,{recursive:true,force:true});}catch{} pushResult({round:1,index:i,sessionId:sid,ok:false,reason:'保存图片失败：'+String(e.message||e),durationSec:dur()});continue;}
@@ -941,7 +979,7 @@ async function pelicanAutoRun(total,opts={}){
       const title=scoreTag?('[鹈鹕 '+scoreTag+(effectiveMode==='still'?'静':'')+'] R1-'+i):('[鹈鹕] R1-'+i);
       let renamed=false,renameError='';
       try{await pelicanRename(sid,title);renamed=true;}catch(e){renameError=String(e.message||e);}
-      pushResult({round:1,index:i,sessionId:sid,ok:true,file,strip,title,score:scoreTag||'不评分',tier:tier||'',scoreMode:pelicanAuto.scoreMode,effectiveScoreMode:effectiveMode,renamed,renameError,via:saved&&saved.via,frames:strip?6:0,durationSec:dur(),scoreError:scoreError});
+      pushResult({round:1,index:i,sessionId:sid,sessionUrl:url,ok:true,file,strip,title,score:scoreTag||'不评分',tier:tier||'',scoreMode:pelicanAuto.scoreMode,effectiveScoreMode:effectiveMode,renamed,renameError,via:saved&&saved.via,frames:strip?6:0,durationSec:dur(),scoreError:scoreError});
       // 每完成一次，等间隔（默认 30 秒）再开始下一次；最后一次不等待
       if(!pelicanAuto.stop&&(infinite||i<total)){pelicanAuto.current={phase:'wait',round:1,index:i,total:infinite?null:total};if(!await pelicanSleepOrStop(pelicanAuto.intervalSec*1000))break;}
     }

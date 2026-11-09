@@ -47,7 +47,7 @@ if(location.protocol==='file:'){
   else{
     const ADMIN_ACTIONS=['open-session','panel-resize','pelican-ref',
       'pelican-auto-start','pelican-auto-stop','pelican-auto-status',
-      'pelican-archive','pelican-archive-list','pelican-open-folder','pelican-archive-one','pelican-archive-unscored','pelican-score-one'];
+      'pelican-archive','pelican-archive-list','pelican-open-folder','pelican-open-session','pelican-archive-one','pelican-archive-unscored','pelican-score-one'];
     contextBridge.exposeInMainWorld('workbench',{
       invoke:(action,data)=>{
         if(!ADMIN_ACTIONS.includes(action))return Promise.reject(new Error('不允许的面板操作'));
