@@ -83,11 +83,118 @@ async function desktopSessionReachable(config, sid) {
       }
     }
   } finally {
-    // Deliberately no close(): this connection attached to the user's desktop
-    // shell, and close() on a CDP connection drops the contexts it wrapped.
-    // The socket is reclaimed when the bridge process exits.
+    // close() 经一次性 Chrome 实测安全：connectOverCDP 的 close() 只断开
+    // WebSocket，不会关掉桌面浏览器（close 后 /json/list 仍通、进程仍在）。
+    // 不关会漏连接：每次调用攒一个，攒多了会把面板的 confirm 对话框自动关掉，
+    // 日志里刷 Page.handleJavaScriptDialog: No dialog is showing。
+    await cdp?.close().catch(() => undefined);
   }
   return false;
+}
+
+
+
+// ── 鹈鹕统计卡：服务端直接扫磁盘，不走 20147 桥接 ──
+// 只认文件夹名（R1-N_分数[静]），和 main.cjs 的 pelicanScanItem / pelicanTier 同一套口径。
+// archive-list 要走 CDP 找 20147 工作区页面，找不到时 pelList() 直接 return，统计卡永远填不上；
+// 这条只读本地磁盘，面板一切页就能出数。
+function pelicanTierOf(score, mode) {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return "";
+  if (mode === "still") return n < 45 ? "差" : n <= 48 ? "中" : n <= 52 ? "良" : "优";
+  return n < 60 ? "差" : n <= 65 ? "中" : n <= 72 ? "良" : "优";
+}
+function pelicanStats() {
+  const root = path.join(__dirname, "..", "..", "选妃资料", "鹈鹕");
+  const counts = { "优": 0, "良": 0, "中": 0, "差": 0 };
+  let total = 0, avail = 0, unscored = 0;
+  const scanOne = (name, archived, tierOverride) => {
+    const m = /^R1-(\d+)_(\d+)(优|良|中|差)?(静)?$/.exec(name);
+    if (!m) return;
+    const tier = tierOverride || pelicanTierOf(Number(m[2]), m[4] === "静" ? "still" : "motion");
+    if (!tier) return;
+    counts[tier]++; total++;
+    if (!archived) avail++;
+  };
+  // 未评分也计入总数/可用数（档数只算有分的）：顶层 R1-N / R1-N_待评分(静)，以及 未评分\ 里的已归档未评分（只计总数）。
+  // 进行中的 R1-N_tmp 不计入。
+  const scanUnscored = (name, archived) => {
+    if (name.endsWith("_tmp")) return false;
+    if (!/^R1-\d+$/.test(name) && !/^R1-\d+_待评分(静)?$/.test(name)) return false;
+    total++;
+    if (!archived) avail++;
+    unscored++;
+    return true;
+  };
+  if (fs.existsSync(root)) {
+    for (const d of fs.readdirSync(root)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const dayDir = path.join(root, d);
+      let st; try { st = fs.statSync(dayDir); } catch { continue; }
+      if (!st.isDirectory()) continue;
+      for (const name of fs.readdirSync(dayDir)) {
+        const full = path.join(dayDir, name);
+        let s2; try { s2 = fs.statSync(full); } catch { continue; }
+        if (!s2.isDirectory()) continue;
+        if (["优", "良", "中", "差"].includes(name)) {
+          for (const sub of fs.readdirSync(full)) scanOne(sub, true, name);
+          continue;
+        }
+        if (name === "未评分") {
+          for (const sub of fs.readdirSync(full)) {
+            const subFull = path.join(full, sub);
+            let s3; try { s3 = fs.statSync(subFull); } catch { continue; }
+            if (!s3.isDirectory()) continue;
+            if (!scanUnscored(sub, true)) scanOne(sub, true);
+          }
+          continue;
+        }
+        if (!scanUnscored(name, false)) scanOne(name, false);
+      }
+    }
+  }
+  const tiers = Object.values(counts).filter((n) => n > 0).length;
+  return { ok: true, exists: fs.existsSync(root), total, avail, tiers, counts, unscored, dayDir: root };
+}
+
+// 鹈鹕自动测试：桥接服务本身不跑鹈鹕逻辑，转发给桌面工作台（main.cjs 的 pelican-auto-* IPC），
+// 桌面再用自己的 arena 窗口发消息、等图、后端收图。桌面没开时返回未运行，不抛错。
+// 20147 死结修复（2026-11-09）：鹈鹕按钮在 20140 管理页上，20147 工作区页和它
+// 不能同时开，旧代码只匹配 20147 页面，永远找不到。现在优先找 20147 工作区页，
+// 找不到就找 20140 管理页（其 preload 已放行 pelican-auto-*/pelican-archive*），
+// 两边都没有才报错。
+async function desktopPelicanInvoke(config, action, data) {
+  if (!config.desktopCdpUrl) return { error: "桌面工作台未打开（没有 CDP 连接）" };
+  let viewer;
+  try { ({ chromium: viewer } = await import("playwright")); } catch { return { error: "playwright 不可用" }; }
+  let cdp;
+  try { cdp = await viewer.connectOverCDP(config.desktopCdpUrl); } catch { return { error: "连不上桌面工作台 CDP" }; }
+  try {
+    // Playwright page.evaluate(fn, arg) 只接受一个参数；之前把 data 当第二个参数传，Playwright 静默丢掉，页面里 d 永远是 undefined，开始参数全丢。改成单对象参数。
+    // 有 dialog 监听时 Playwright 不会自动关对话框；没监听时，附着的会话会把
+    // 面板的 confirm 当无人处理自动 dismiss。空监听让对话框留给用户自己点。
+    const invokeOn = async (page) => { page.on("dialog", () => {}); return page.evaluate(async (o) => { try { return await window.workbench.invoke(o.a, o.d); } catch (e) { return { error: String((e && e.message) || e) }; } }, { a: action, d: data || {} }).catch(() => null); };
+    const pages = [];
+    for (const ctx of cdp.contexts()) for (const page of ctx.pages()) pages.push(page);
+    // 先找 20147 工作区页（原有行为不变）
+    for (const page of pages) {
+      if (!page.url().includes("127.0.0.1:20147")) continue;
+      const r = await invokeOn(page);
+      if (r) return r;
+    }
+    // 再找 20140 管理页（preload 已放行 pelican 操作）
+    for (const page of pages) {
+      if (!page.url().includes("127.0.0.1:20140")) continue;
+      const r = await invokeOn(page);
+      if (r) return r;
+    }
+    return { error: "桌面工作台里没有工作区页面（20147）也没有管理页（20140）" };
+  } finally {
+    // close() 经一次性 Chrome 实测安全：connectOverCDP 的 close() 只断开
+    // WebSocket，不会关掉桌面浏览器（close 后 /json/list 仍通、进程仍在）。
+    // 不关会漏连接，攒多了自动关掉面板的 confirm 对话框，归档点不动。
+    await cdp?.close().catch(() => undefined);
+  }
 }
 
 // ── ModelPool state ───────────────────────────────────────────────────────
@@ -1180,6 +1287,64 @@ export function createServer({ bridge, config }) {
     }
     if (req.method === "POST" && url.pathname === "/api/harvest/stop") {
       return json(res, 200, harvester.stop());
+    }
+
+    // ── 鹈鹕自动测试（连续采集页）──
+    // ── 鹈鹕统计卡：服务端直接扫磁盘，不走 20147 桥接 ──
+    if (url.pathname === "/api/pelican/stats") {
+      return json(res, 200, pelicanStats());
+    }
+    if (url.pathname === "/api/pelican/status") {
+      const r = await desktopPelicanInvoke(config, "pelican-auto-status");
+      if (r && r.error) return json(res, 200, { ok: true, running: false, round: 0, totalRounds: 0, x: 5, done: 0, total: 0, infinite: false, current: null, results: [], lastError: r.error, startedAt: null });
+      return json(res, 200, r);
+    }
+    if (req.method === "POST" && url.pathname === "/api/pelican/start") {
+      const body = await readBody(req);
+      const scoreMode = ["none", "still", "motion"].includes(body.scoreMode) ? body.scoreMode : (body.score === true ? "motion" : "none");
+      const r = await desktopPelicanInvoke(config, "pelican-auto-start", { times: body.infinite === true ? 0 : Math.max(1, Math.min(10000, Number(body.times ?? ((Number(body.rounds || 1)) * (Number(body.count || 5)))) || 5)), infinite: body.infinite === true, scoreMode, score: scoreMode !== "none", intervalSec: Math.max(0, Math.min(3600, Number(body.intervalSec || 30))) });
+      if (!r || r.error) return json(res, 400, { error: { message: (r && r.error) || "启动失败" } });
+      return json(res, 200, r);
+    }
+    if (req.method === "POST" && url.pathname === "/api/pelican/stop") {
+      const r = await desktopPelicanInvoke(config, "pelican-auto-stop");
+      return json(res, 200, r || { ok: true });
+    }
+    // ── 鹈鹕按分数归档：只转发给桌面工作台（文件在它手里），本身不碰磁盘 ──
+    if (url.pathname === "/api/pelican/archive-list") {
+      const r = await desktopPelicanInvoke(config, "pelican-archive-list", {}); // 不按日期：全部日期按档合并
+      if (r && r.error) return json(res, 400, { error: { message: r.error } });
+      return json(res, 200, r);
+    }
+    if (req.method === "POST" && url.pathname === "/api/pelican/archive") {
+      const body = await readBody(req);
+      const r = await desktopPelicanInvoke(config, "pelican-archive", { tiers: body.tiers || [] }); // 不按日期
+      if (!r || r.error) return json(res, 400, { error: { message: (r && r.error) || "归档失败" } });
+      return json(res, 200, r);
+    }
+    if (req.method === "POST" && url.pathname === "/api/pelican/open-folder") {
+      const body = await readBody(req);
+      const r = await desktopPelicanInvoke(config, "pelican-open-folder", { date: body.date || "", name: body.name || "" });
+      if (!r || r.error) return json(res, 400, { error: { message: (r && r.error) || "打开失败" } });
+      return json(res, 200, r);
+    }
+    if (req.method === "POST" && url.pathname === "/api/pelican/archive-one") {
+      const body = await readBody(req);
+      const r = await desktopPelicanInvoke(config, "pelican-archive-one", { date: body.date || "", name: body.name || "" });
+      if (!r || r.error) return json(res, 400, { error: { message: (r && r.error) || "归档失败" } });
+      return json(res, 200, r);
+    }
+    if (req.method === "POST" && url.pathname === "/api/pelican/score-one") {
+      const body = await readBody(req);
+      const r = await desktopPelicanInvoke(config, "pelican-score-one", { date: body.date || "", name: body.name || "" });
+      if (!r || r.error) return json(res, 400, { error: { message: (r && r.error) || "评分失败" } });
+      return json(res, 200, r);
+    }
+    if (req.method === "POST" && url.pathname === "/api/pelican/archive-unscored") {
+      const body = await readBody(req);
+      const r = await desktopPelicanInvoke(config, "pelican-archive-unscored", { date: body.date || "" });
+      if (!r || r.error) return json(res, 400, { error: { message: (r && r.error) || "归档失败" } });
+      return json(res, 200, r);
     }
     if (req.method === "POST" && url.pathname === "/api/mcp/start") {
       try {
