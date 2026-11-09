@@ -151,7 +151,7 @@ test("exposesBridgeKey: only while the listener is loopback", () => {
   assert.equal(exposesBridgeKey({ host: "localhost" }), true);
   assert.equal(exposesBridgeKey({ host: "::1" }), true);
   assert.equal(exposesBridgeKey({ host: "0.0.0.0" }), false);
-  assert.equal(exposesBridgeKey({ host: "10.0.0.5" }), false);
+  assert.equal(exposesBridgeKey({ host: "192.168.1.5" }), false);
   assert.equal(exposesBridgeKey({ host: "" }), false);
   assert.equal(exposesBridgeKey({}), false);
 });
